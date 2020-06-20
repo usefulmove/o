@@ -1,0 +1,553 @@
+---
+title: "COVID-19 Risk Modeling"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+`r format(Sys.time(), '%B %d, %Y')`
+
+![](./covid.png)
+
+<style>
+body {
+text-align: justify}
+</style>
+
+# Background
+
+The U.S. country, state, and county health data used for this analysis is pulled directly from the New York Times COVID-19 GitHub repository (https://github.com/nytimes/covid-19-data) using `git pull` requests. The predictive analytics model is constructed in the R programming language using [RStudio](https://rstudio.com) and the [Tidyverse](https://www.tidyverse.org/) family of packages.
+
+>The New York Times is releasing a series of data files with cumulative counts of coronavirus cases in the United States, at the state and county level, over time. We are compiling this time series data from state and local governments and health departments in an attempt to provide a complete record of the ongoing outbreak.
+>
+>Since late January, The Times has tracked cases of coronavirus in real time as they were identified after testing. Because of the widespread shortage of testing, however, the data is necessarily limited in the picture it presents of the outbreak.
+>
+>We have used this data to power our maps and reporting tracking the outbreak, and it is now being made available to the public in response to requests from researchers, scientists and government officials who would like access to the data to better understand the outbreak.
+>
+>The data begins with the first reported coronavirus case in Washington State on Jan. 21, 2020. We will publish regular updates to the data in this repository.
+
+# Data Analysis
+
+The COVID-19 data in the New York Times GitHub repository is structured as three main comma-separated value data files---one top-level country summary file, one state-level summary file, and one data file containing reported case and death data for each individual U.S. county. Each of these is used for this analysis. The data from each of these files is used to calculate the rate of reported new cases and deaths for each state and county, and these rates are used to build a predictive model by linear regression using least-squares methods for each entity. A risk estimate is generated from these models, and the states and counties with the highest estimated risk are compared in the charts shown in this document. In the charts showing new reported cases and deaths, a generalized additive model (GAM) smoothing function was fit to each data set.
+
+The risk assessment methodology used in this analysis has not been validated and is subject to noise in the data. There is a phenomenon that has been reported in the White House press briefings about the COVID-19 response whereby some counties report updates to the county data on Mondays for the incremental changes over the weekend. This will negatively affect the accuracy of the model to some degree. To enable more robustness in the risk estimation algorithm, data over a 10-day period us used as a compromise between speed of detection of a change in risk and errors due to high sensitivity to noise in the data.
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+library(tidyverse)
+library(ggthemes)
+library(grid)
+library(gridExtra)
+library(lubridate)
+library(RColorBrewer)
+
+prim_color <- "#fcab18"
+sec_color <- "#00c0ff"
+
+theme_set(theme_minimal())
+```
+
+
+```{r import_and_tidy, include=FALSE}
+data_path <- "../../../covid-19-data/"
+
+# united states
+us <- read_csv(str_glue("{data_path}us.csv"))
+us_live <- read_csv(str_glue("{data_path}live/us.csv"))
+
+# states
+states <- read_csv(str_glue("{data_path}us-states.csv"))
+
+# counties
+counties <- read_csv(str_glue("{data_path}us-counties.csv"))
+```
+
+
+```{r functions, include=FALSE}
+### data analysis functions ###
+
+get_state <- function(state_name) {
+  s <- states[states$state == state_name, ] # state object
+
+  s <- s %>%
+    mutate(
+      ncases = cases - lag(cases, default = cases[1]),
+      ndeaths = deaths - lag(deaths, default = deaths[1])
+    )
+
+  s
+}
+
+get_county <- function(county_name, state_name) {
+  c <- counties %>%
+    filter(county == county_name, state == state_name) # county object
+
+  if (nrow(c) > 1) {
+    c <- c %>%
+      mutate(
+        ncases = cases - lag(cases, default = cases[1]),
+        ndeaths = deaths - lag(deaths, default = deaths[1])
+      )
+  }
+
+  c
+}
+
+coverall <- function(state_name = "United States") {
+  if (state_name == "United States") {
+    s <- us
+    chart_caption <- "(data from nytimes)"
+  }
+  else {
+    s <- get_state(state_name)
+    chart_caption <- ""
+  }
+
+  # display new cases and new deaths
+  scale_d <- 5
+
+  p <- ggplot(data = s, mapping = aes(x = date)) +
+    geom_area(aes(y = cases, fill = "#ff9933"),
+      na.rm = TRUE, alpha = 0.8
+    ) +
+    geom_area(aes(y = deaths * scale_d, fill = "#6db96b"),
+      na.rm = TRUE, alpha = 0.8
+    ) +
+    labs(
+      title = state_name,
+      x = "",
+      y = "cases",
+      fill = "",
+      caption = chart_caption
+    ) +
+    scale_y_continuous(
+      labels = scales::comma,
+      sec.axis = sec_axis(~ . / scale_d,
+                          name = "deaths",
+                          labels = scales::comma
+                 )
+    ) +
+    coord_cartesian(xlim = as.Date(c("2020-03-15",
+                                     Sys.Date()
+                                     ),
+                                   origin = "1960-10-01"
+                           ),
+                    ylim = c(0, max(s$cases))
+    ) +
+    scale_fill_manual(
+      labels = c("deaths", "cases"),
+      values = c("#ff9933", "#6db96b")
+    ) +
+    theme(
+      legend.position = "bottom",
+      text = element_text(size = 10)
+    )
+
+  p
+}
+
+covid <- function(state_name = "United States") {
+  if (state_name == "United States") {
+    s <- us
+    chart_caption <- "(data from nytimes)"
+  }
+  else {
+    s <- get_state(state_name)
+    chart_caption <- ""
+  }
+
+  # output stats
+  print(str_glue("{state_name} has {format(s$cases[nrow(s)], big.mark = ',')} cases ",
+                 "({format(s$ncases[nrow(s)], big.mark = ',')} cases per day) and ",
+                 "{format(s$deaths[nrow(s)], big.mark = ',')} deaths ",
+                 "({format(s$ndeaths[nrow(s)], big.mark = ',')} deaths per day)."
+        )
+  )
+
+  # display new cases and new deaths
+  scale_d <- 5
+
+  p <- ggplot(data = s, mapping = aes(x = date)) +
+    geom_smooth(aes(y = ndeaths * scale_d),
+      color = "darkgrey", fill = "grey85",
+      method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
+      size = 0.8, na.rm = TRUE
+    ) +
+    geom_smooth(aes(y = ncases),
+      color = "darkgrey", fill = "grey85",
+      method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
+      na.rm = TRUE
+    ) +
+    geom_point(aes(y = ndeaths * scale_d, fill = sec_color),
+      shape = 21, color = "black",
+      size = 2, na.rm = TRUE, alpha = 0.8
+    ) +
+    geom_point(aes(y = ncases, fill = prim_color),
+      shape = 21, color = "black",
+      size = 2, na.rm = TRUE, alpha = 0.8
+    ) +
+    labs(
+      title = state_name,
+      x = "",
+      y = "cases (change)",
+      fill = "",
+      caption = chart_caption
+    ) +
+    scale_y_continuous(
+      labels = scales::comma,
+      sec.axis = sec_axis(~ . / scale_d,
+                          name = "deaths (change)",
+                          labels = scales::comma
+                 )
+    ) +
+    coord_cartesian(xlim = as.Date(c("2020-03-01",
+                                     Sys.Date()
+                                     ),
+                                   origin = "1960-10-01"
+                           ),
+                    ylim = c(0, max(s$ncases))
+    ) +
+    scale_fill_manual(
+      labels = c("deaths", "cases"),
+      values = c(prim_color, sec_color)
+    ) +
+    theme(
+      legend.position = "bottom",
+      text = element_text(size = 10)
+    )
+
+  p
+}
+
+coverallc <- function(county_state) {
+  county_name <- str_trim(str_split_fixed(county_state, ",", n = 2)[1])
+  state_name <- str_trim(str_split_fixed(county_state, ",", n = 2)[2])
+
+
+  c <- get_county(county_name, state_name)
+
+  # display new cases and new deaths
+  scale_d <- 5
+
+  p <- ggplot(data = c, mapping = aes(x = date)) +
+    geom_area(aes(y = cases, fill = "#ff9933"),
+      na.rm = TRUE, alpha = 0.8
+    ) +
+    geom_area(aes(y = deaths * scale_d, fill = "#6db96b"),
+      na.rm = TRUE, alpha = 0.8
+    ) +
+    labs(
+      title = str_glue("{county_name} County, {state_name}"),
+      x = "",
+      y = "cases",
+      fill = ""
+    ) +
+    scale_x_date(limits = as.Date(c("2020-03-01",
+                                    Sys.Date()
+                                    ),
+                                  origin = "1960-10-01"
+                          )
+    ) +
+    scale_y_continuous(
+      labels = scales::comma,
+      sec.axis = sec_axis(~ . / scale_d,
+                          name = "deaths",
+                          labels = scales::comma
+                 )
+    ) +
+    coord_cartesian(xlim = as.Date(c("2020-03-01",
+                                     Sys.Date()
+                                     ),
+                                   origin = "1960-10-01"
+                           ),
+                    ylim = c(0, max(c$cases))
+    ) +
+    scale_fill_manual(
+      labels = c("deaths", "cases"),
+      values = c("#ff9933", "#6db96b")
+    ) +
+    theme(
+      legend.position = "bottom",
+      text = element_text(size = 10)
+    )
+
+  p
+}
+
+covidc <- function(county_state) {
+  county_name <- str_trim(str_split_fixed(county_state, ",", n = 2)[1])
+  state_name <- str_trim(str_split_fixed(county_state, ",", n = 2)[2])
+
+
+  c <- get_county(county_name, state_name)
+
+  # output stats
+  print(str_glue("{county_name} County, {state_name} has ",
+                 "{format(c$cases[nrow(c)], big.mark = ',')} cases ",
+                 "({format(c$ncases[nrow(c)], big.mark = ',')} cases per day) and ",
+                 "{format(c$deaths[nrow(c)], big.mark = ',')} deaths ",
+                 "({format(c$ndeaths[nrow(c)], big.mark = ',')} deaths per day)."
+        )
+  )
+
+  # display new cases and new deaths
+  scale_d <- 5
+
+  p <- ggplot(data = c, mapping = aes(x = date)) +
+    geom_smooth(aes(y = ndeaths * scale_d),
+      color = "darkgrey", fill = "grey85",
+      method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
+      size = 0.8, na.rm = TRUE
+    ) +
+    geom_smooth(aes(y = ncases),
+      color = "darkgrey", fill = "grey85",
+      method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
+      na.rm = TRUE
+    ) +
+    geom_point(aes(y = ndeaths * scale_d, fill = sec_color),
+      shape = 21, color = "black",
+      size = 2, na.rm = TRUE, alpha = 0.8
+    ) +
+    geom_point(aes(y = ncases, fill = prim_color),
+      shape = 21, color = "black",
+      size = 2, na.rm = TRUE, alpha = 0.8
+    ) +
+    labs(
+      title = str_glue("{county_name} County, {state_name}"),
+      x = "",
+      y = "cases (change)",
+      fill = ""
+    ) +
+    scale_x_date(limits = as.Date(c("2020-03-01",
+                                    Sys.Date()
+                                    ),
+                                  origin = "1960-10-01"
+                          )
+    ) +
+    scale_y_continuous(
+      labels = scales::comma,
+      sec.axis = sec_axis(~ . / scale_d,
+                          name = "deaths (change)",
+                          labels = scales::comma
+                 )
+    ) +
+    coord_cartesian(xlim = as.Date(c("2020-03-01",
+                                     Sys.Date()
+                                     ),
+                                   origin = "1960-10-01"
+                           ),
+                    ylim = c(0, max(c$ncases))
+    ) +
+    scale_fill_manual(
+      labels = c("deaths", "cases"),
+      values = c(prim_color, sec_color)
+    ) +
+    theme(
+      legend.position = "bottom",
+      text = element_text(size = 10)
+    )
+
+  p
+}
+
+calculate_caserate_state <- function(state_name) {
+  s <- get_state(state_name)
+
+  # data to be used for fitting linear regression model
+  reg_data <- top_n(s, 10, date)
+
+  # linear regression model
+  reg_model <- lsfit(reg_data$date, reg_data$ncases)
+
+  return(reg_model$coefficients["X"]) # return slope of ncases rate
+}
+calculate_caserate_state_c <- compiler::cmpfun(calculate_caserate_state)
+
+calculate_caserate_county <- function(county_name, state_name) {
+  c <- get_county(county_name, state_name) # county object
+
+  if (nrow(c) > 20) {
+    # data to be used for fitting linear regression model
+    reg_data <- top_n(c, 10, date)
+
+    # linear regression model
+    reg_model <- lsfit(reg_data$date, reg_data$ncases)
+
+    return(reg_model$coefficients["X"]) # return slope of ncases rate
+  }
+
+  return(0)
+}
+calculate_caserate_county_c <- compiler::cmpfun(calculate_caserate_county)
+```
+
+
+```{r country, include=FALSE}
+## u.s. analysis ##
+
+us <- us %>%
+  mutate(
+    ncases = cases - lag(cases, default = cases[1]),
+    ndeaths = deaths - lag(deaths, default = deaths[1])
+  )
+
+p_us_overall <- coverall()
+p_us <- covid()
+```
+
+
+```{r states, include=FALSE}
+### state analysis ###
+
+# calculate state case rates
+state_case_rates <- states %>% distinct(state)
+state_case_rates <- state_case_rates %>% # add current case rates for all states
+  mutate(case_rate = map_dbl(state_case_rates$state,
+                             ~ calculate_caserate_state_c(.)
+                     )
+  )
+
+state_df <- state_case_rates %>% # highest case rates
+  filter(case_rate > 5) %>%
+  top_n(15, case_rate)
+```
+
+
+```{r counties, include=FALSE}
+
+# calculate county case rates
+county_case_rates <- counties %>%
+  filter(county != "Unknown") %>%
+  distinct(county, state) %>%
+  mutate(state = as.character(state), county = as.character(county))
+
+county_case_rates <- county_case_rates %>% # add current case rates
+  mutate(case_rate = map2_dbl(county_case_rates$county,
+                              county_case_rates$state,
+                              ~ calculate_caserate_county_c(.x, .y)
+                     )
+  )
+
+county_table <- county_case_rates %>% # highest case rates
+  filter(case_rate > 5) %>%
+  top_n(15, case_rate) %>%
+  arrange(desc(case_rate)) %>%
+  mutate(
+    order = as.factor(row_number(case_rate)),
+    county = as.factor(county),
+    state = as.factor(state)
+  )
+```
+
+---
+
+# Summary Results
+
+
+### United States
+
+```{r country_summary, include=FALSE}
+total_us_cases <- us_live$cases[nrow(us_live)]
+current_us_ncases <- us$ncases[nrow(us)]
+total_us_deaths <- us_live$deaths[nrow(us_live)]
+current_us_ndeaths <- us$ndeaths[nrow(us)]
+```
+
+There have been **`r format( total_us_cases, big.mark="," )`** COVID-19 cases (`r format( current_us_ncases, big.mark="," )` new cases per day) and **`r format( total_us_deaths, big.mark="," )`** deaths (`r format( current_us_ndeaths, big.mark="," )` new deaths per day) in the United States.
+
+<br/><br/>
+
+```{r country_chart_overall, fig.width=9.5, fig.height=7, fig.align="center"}
+# ```{r country_chart_overall, fig.width=6, fig.height=4.5, fig.align="center"}  # pdf only
+p_us_overall
+```
+
+```{r country_chart_change, fig.width=9.5, fig.height=7, fig.align="center"}
+# ```{r country_chart_change, fig.width=6, fig.height=4.5, fig.align="center"}  # pdf only
+p_us
+```
+
+### Individual States
+
+```{r state_estimates, fig.width=9.5, fig.height=7, fig.align="center"}
+# ```{r state_estimates, fig.width=6, fig.height=4, fig.align="center"}  # pdf only
+alarm <- 25
+state_df %>%
+  ggplot(aes(x = reorder(state, case_rate), y = case_rate)) +
+    geom_hline(yintercept = alarm,
+               size = 0.5,
+               color = "darkgrey",
+               linetype = "dashed"
+    ) +
+    geom_bar(aes(fill = case_rate >= alarm),
+      stat = "identity",
+      width = 0.5,
+      alpha = 0.8,
+      show.legend = FALSE,
+      color = "black"
+    ) +
+    coord_flip() +
+    labs(
+      title = "States with Highest Estimated Risk",
+      x = "",
+      y = expression(rho),
+      fill = "",
+      caption = "(d.edmonds)"
+    ) +
+    scale_fill_manual(values = c(sec_color, prim_color))
+```
+
+
+```{r state_charts, include=FALSE}
+state_ylim <- 3600
+
+p1 <- covid("Florida") + coord_cartesian(ylim = c(0, state_ylim))
+p2 <- covid("California") + coord_cartesian(ylim = c(0, state_ylim))
+p3 <- covid("Texas") + coord_cartesian(ylim = c(0, state_ylim))
+p4 <- covid("Arizona") + coord_cartesian(ylim = c(0, state_ylim))
+p5 <- covid("North Carolina") + coord_cartesian(ylim = c(0, state_ylim))
+p6 <- covid("South Carolina") + coord_cartesian(ylim = c(0, state_ylim))
+```
+
+<br/><br/>
+
+```{r disp_state_charts, fig.align="center", fig.height=15, fig.width=9.5, message=FALSE, warning=FALSE}
+grid.arrange(p1, p2, p3, p4, p5, p6, nrow = 3)
+```
+
+<br/><br/>
+
+### Individual Counties
+
+```{r county_estimates, fig.width=9.5, fig.height=7, fig.align="center"}
+get_palette <- colorRampPalette(brewer.pal(9, "Set1"))
+
+n_states <- n_distinct(county_table$state)
+palette_len <- ifelse(n_states > 9, n_states, 9)
+
+county_table %>%
+  mutate(county = fct_reorder(county, case_rate)) %>%
+  ggplot(aes(x = order, y = case_rate)) +
+    geom_bar(aes(fill = fct_reorder2(state, county, case_rate)),
+      stat = "identity",
+      width = 0.65,
+      alpha = 0.8,
+      color = "black"
+    ) +
+    scale_x_discrete(labels = rev(county_table$county)) +
+    scale_fill_manual(values = get_palette(palette_len)) +
+    labs(
+      title = "Counties with Highest Estimated Risk",
+      x = "",
+      y = expression(rho),
+      fill = "State",
+      caption = "(d.edmonds)"
+    ) +
+    coord_flip()
+```
+
+
+```{r, include=FALSE}
+beepr::beep(2)
+```
