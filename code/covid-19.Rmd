@@ -2,7 +2,6 @@
 title: "COVID-19 Risk Modeling"
 output:
   html_document: default
-  pdf_document: default
 ---
 
 `r format(Sys.time(), '%B %d, %Y')`
@@ -13,6 +12,8 @@ output:
 body {
 text-align: justify}
 </style>
+
+<br>
 
 # Background
 
@@ -26,21 +27,33 @@ The U.S. country, state, and county health data used for this analysis is pulled
 >
 >The data begins with the first reported coronavirus case in Washington State on Jan. 21, 2020. We will publish regular updates to the data in this repository.
 
+<br><br>
+
 # Data Analysis
 
 The COVID-19 data in the New York Times GitHub repository is structured as three main comma-separated value data files---one top-level country summary file, one state-level summary file, and one data file containing reported case and death data for each individual U.S. county. Each of these is used for this analysis. The data from each of these files is used to calculate the rate of reported new cases and deaths for each state and county, and these rates are used to build a predictive model by linear regression using least-squares methods for each entity. A risk estimate is generated from these models, and the states and counties with the highest estimated risk are compared in the charts shown in this document. In the charts showing new reported cases and deaths, a generalized additive model (GAM) smoothing function was fit to each data set.
 
 The risk assessment methodology used in this analysis has not been validated and is subject to noise in the data. There is a phenomenon that has been reported in the White House press briefings about the COVID-19 response whereby some counties report updates to the county data on Mondays for the incremental changes over the weekend. This will negatively affect the accuracy of the model to some degree. To enable more robustness in the risk estimation algorithm, data over a 10-day period us used as a compromise between speed of detection of a change in risk and errors due to high sensitivity to noise in the data.
 
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  #fig.width = 4.75,
+  #fig.height = 3.5,
+  out.width = "100%",
+  fig.asp = 0.8,
+  fig.align = "center",
+  message = FALSE,
+  warning = FALSE
+)
 library(tidyverse)
 library(ggthemes)
 library(grid)
 library(gridExtra)
 library(lubridate)
 library(RColorBrewer)
+library(magrittr)
+library(ggsci)
 
 prim_color <- "#fcab18"
 sec_color <- "#00c0ff"
@@ -48,8 +61,7 @@ sec_color <- "#00c0ff"
 theme_set(theme_minimal())
 ```
 
-
-```{r import_and_tidy, include=FALSE}
+```{r import_and_tidy, include = FALSE}
 data_path <- "../../../covid-19-data/"
 
 # united states
@@ -63,9 +75,9 @@ states <- read_csv(str_glue("{data_path}us-states.csv"))
 counties <- read_csv(str_glue("{data_path}us-counties.csv"))
 ```
 
+```{r functions, include = FALSE}
 
-```{r functions, include=FALSE}
-### data analysis functions ###
+# data analysis functions
 
 get_state <- function(state_name) {
   s <- states[states$state == state_name, ] # state object
@@ -170,11 +182,13 @@ covid <- function(state_name = "United States") {
 
   p <- ggplot(data = s, mapping = aes(x = date)) +
     geom_smooth(aes(y = ndeaths * scale_d),
+      se = FALSE,
       color = "darkgrey", fill = "grey85",
       method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
-      size = 0.8, na.rm = TRUE
+      na.rm = TRUE
     ) +
     geom_smooth(aes(y = ncases),
+      se = FALSE,
       color = "darkgrey", fill = "grey85",
       method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
       na.rm = TRUE
@@ -296,11 +310,13 @@ covidc <- function(county_state) {
 
   p <- ggplot(data = c, mapping = aes(x = date)) +
     geom_smooth(aes(y = ndeaths * scale_d),
+      se = FALSE,
       color = "darkgrey", fill = "grey85",
       method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
-      size = 0.8, na.rm = TRUE
+      na.rm = TRUE
     ) +
     geom_smooth(aes(y = ncases),
+      se = FALSE,
       color = "darkgrey", fill = "grey85",
       method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
       na.rm = TRUE
@@ -351,7 +367,7 @@ covidc <- function(county_state) {
   p
 }
 
-calculate_caserate_state <- function(state_name) {
+calculate_risk_estimate_state <- function(state_name) {
   s <- get_state(state_name)
 
   # data to be used for fitting linear regression model
@@ -362,9 +378,9 @@ calculate_caserate_state <- function(state_name) {
 
   return(reg_model$coefficients["X"]) # return slope of ncases rate
 }
-calculate_caserate_state_c <- compiler::cmpfun(calculate_caserate_state)
+calculate_risk_estimate_state_c <- compiler::cmpfun(calculate_risk_estimate_state)
 
-calculate_caserate_county <- function(county_name, state_name) {
+calculate_risk_estimate_county <- function(county_name, state_name) {
   c <- get_county(county_name, state_name) # county object
 
   if (nrow(c) > 20) {
@@ -379,11 +395,10 @@ calculate_caserate_county <- function(county_name, state_name) {
 
   return(0)
 }
-calculate_caserate_county_c <- compiler::cmpfun(calculate_caserate_county)
+calculate_risk_estimate_county_c <- compiler::cmpfun(calculate_risk_estimate_county)
 ```
 
-
-```{r country, include=FALSE}
+```{r country, include = FALSE}
 ## u.s. analysis ##
 
 us <- us %>%
@@ -396,91 +411,99 @@ p_us_overall <- coverall()
 p_us <- covid()
 ```
 
-
-```{r states, include=FALSE}
+```{r states, include = FALSE}
 ### state analysis ###
 
-# calculate state case rates
-state_case_rates <- states %>% distinct(state)
-state_case_rates <- state_case_rates %>% # add current case rates for all states
-  mutate(case_rate = map_dbl(state_case_rates$state,
-                             ~ calculate_caserate_state_c(.)
+# calculate state risk estimates
+state_risk_estimates <- states %>% distinct(state)
+state_risk_estimates <- state_risk_estimates %>% # add current risk estimates for all states
+  mutate(risk_estimate = map_dbl(state_risk_estimates$state,
+                             ~ calculate_risk_estimate_state_c(.)
                      )
   )
 
-state_df <- state_case_rates %>% # highest case rates
-  filter(case_rate > 5) %>%
-  top_n(15, case_rate)
+state_df <- state_risk_estimates %>% # highest risk estimates
+  filter(risk_estimate > 5) %>%
+  top_n(15, risk_estimate)
 ```
 
+```{r counties, include = FALSE}
 
-```{r counties, include=FALSE}
-
-# calculate county case rates
-county_case_rates <- counties %>%
+# calculate county risk estimates
+county_risk_estimates <- counties %>%
   filter(county != "Unknown") %>%
   distinct(county, state) %>%
   mutate(state = as.character(state), county = as.character(county))
 
-county_case_rates <- county_case_rates %>% # add current case rates
-  mutate(case_rate = map2_dbl(county_case_rates$county,
-                              county_case_rates$state,
-                              ~ calculate_caserate_county_c(.x, .y)
+county_risk_estimates <- county_risk_estimates %>% # add current risk estimates
+  mutate(risk_estimate = map2_dbl(county_risk_estimates$county,
+                              county_risk_estimates$state,
+                              ~ calculate_risk_estimate_county_c(.x, .y)
                      )
   )
 
-county_table <- county_case_rates %>% # highest case rates
-  filter(case_rate > 5) %>%
-  top_n(15, case_rate) %>%
-  arrange(desc(case_rate)) %>%
+county_table <- county_risk_estimates %>% # highest risk estimates
+  filter(risk_estimate > 5) %>%
+  top_n(15, risk_estimate) %>%
+  arrange(desc(risk_estimate)) %>%
   mutate(
-    order = as.factor(row_number(case_rate)),
+    order = as.factor(row_number(risk_estimate)),
     county = as.factor(county),
     state = as.factor(state)
   )
 ```
 
+<br>
+
 ---
+
+<br>
 
 # Summary Results
 
+<br>
 
-### United States
+## United States
 
-```{r country_summary, include=FALSE}
+```{r country_summary, include = FALSE}
 total_us_cases <- us_live$cases[nrow(us_live)]
 current_us_ncases <- us$ncases[nrow(us)]
 total_us_deaths <- us_live$deaths[nrow(us_live)]
 current_us_ndeaths <- us$ndeaths[nrow(us)]
 ```
 
-There have been **`r format( total_us_cases, big.mark="," )`** COVID-19 cases (`r format( current_us_ncases, big.mark="," )` new cases per day) and **`r format( total_us_deaths, big.mark="," )`** deaths (`r format( current_us_ndeaths, big.mark="," )` new deaths per day) in the United States.
+There have been `r format( total_us_cases, big.mark="," )` COVID-19 cases (`r format( current_us_ncases, big.mark="," )` new cases per day) and `r format( total_us_deaths, big.mark="," )` deaths (`r format( current_us_ndeaths, big.mark="," )` new deaths per day) in the United States.
 
-<br/><br/>
+<br><br>
 
-```{r country_chart_overall, fig.width=9.5, fig.height=7, fig.align="center"}
-# ```{r country_chart_overall, fig.width=6, fig.height=4.5, fig.align="center"}  # pdf only
+```{r country_chart_overall}
 p_us_overall
 ```
 
-```{r country_chart_change, fig.width=9.5, fig.height=7, fig.align="center"}
-# ```{r country_chart_change, fig.width=6, fig.height=4.5, fig.align="center"}  # pdf only
+<br><br>
+
+```{r country_chart_change}
 p_us
 ```
 
-### Individual States
+<br>
 
-```{r state_estimates, fig.width=9.5, fig.height=7, fig.align="center"}
-# ```{r state_estimates, fig.width=6, fig.height=4, fig.align="center"}  # pdf only
+---
+
+<br>
+
+## Individual States
+
+```{r state_estimates}
 alarm <- 25
 state_df %>%
-  ggplot(aes(x = reorder(state, case_rate), y = case_rate)) +
+  ggplot(aes(x = reorder(state, risk_estimate), y = risk_estimate)) +
     geom_hline(yintercept = alarm,
                size = 0.5,
                color = "darkgrey",
                linetype = "dashed"
     ) +
-    geom_bar(aes(fill = case_rate >= alarm),
+    geom_bar(aes(fill = risk_estimate >= alarm),
       stat = "identity",
       width = 0.5,
       alpha = 0.8,
@@ -498,38 +521,41 @@ state_df %>%
     scale_fill_manual(values = c(sec_color, prim_color))
 ```
 
-
-```{r state_charts, include=FALSE}
-state_ylim <- 3600
+```{r state_charts, include = FALSE}
+state_ylim <- 4250
 
 p1 <- covid("Florida") + coord_cartesian(ylim = c(0, state_ylim))
 p2 <- covid("California") + coord_cartesian(ylim = c(0, state_ylim))
 p3 <- covid("Texas") + coord_cartesian(ylim = c(0, state_ylim))
 p4 <- covid("Arizona") + coord_cartesian(ylim = c(0, state_ylim))
-p5 <- covid("North Carolina") + coord_cartesian(ylim = c(0, state_ylim))
+p5 <- covid("Georgia") + coord_cartesian(ylim = c(0, state_ylim))
 p6 <- covid("South Carolina") + coord_cartesian(ylim = c(0, state_ylim))
 ```
 
-<br/><br/>
+<br><br>
 
-```{r disp_state_charts, fig.align="center", fig.height=15, fig.width=9.5, message=FALSE, warning=FALSE}
+```{r disp_state_charts, fig.asp=1.6}
 grid.arrange(p1, p2, p3, p4, p5, p6, nrow = 3)
 ```
 
-<br/><br/>
+<br>
 
-### Individual Counties
+---
 
-```{r county_estimates, fig.width=9.5, fig.height=7, fig.align="center"}
+<br>
+
+## Individual Counties
+
+```{r county_estimates}
 get_palette <- colorRampPalette(brewer.pal(9, "Set1"))
 
 n_states <- n_distinct(county_table$state)
 palette_len <- ifelse(n_states > 9, n_states, 9)
 
 county_table %>%
-  mutate(county = fct_reorder(county, case_rate)) %>%
-  ggplot(aes(x = order, y = case_rate)) +
-    geom_bar(aes(fill = fct_reorder2(state, county, case_rate)),
+  mutate(county = fct_reorder(county, risk_estimate)) %>%
+  ggplot(aes(x = order, y = risk_estimate)) +
+    geom_bar(aes(fill = fct_reorder2(state, county, risk_estimate)),
       stat = "identity",
       width = 0.65,
       alpha = 0.8,
@@ -541,13 +567,236 @@ county_table %>%
       title = "Counties with Highest Estimated Risk",
       x = "",
       y = expression(rho),
-      fill = "State",
+      fill = "state",
       caption = "(d.edmonds)"
     ) +
     coord_flip()
 ```
 
+<br><br>
 
-```{r, include=FALSE}
+---
+
+<br>
+
+# Global Mobility Data
+
+
+For the purpose of assisting the global COVID-19 pandemic response, Google has temporarily made available detailed mobility estimates relative to local baselines obtained from cell phone and other data of the type used to by services like Google Maps. This data is provided by Google in the form of [Community Mobility Reports](https://www.google.com/covid19/mobility/).
+
+>As global communities respond to COVID-19, we've heard from public health officials that the same type of aggregated, anonymized insights we use in products such as Google Maps could be helpful as they make critical decisions to combat COVID-19.
+>
+>These Community Mobility Reports aim to provide insights into what has changed in response to policies aimed at combating COVID-19. The reports chart movement trends over time by geography, across different categories of places such as retail and recreation, groceries and pharmacies, parks, transit stations, workplaces, and residential.
+
+```{r mobility_import, include = FALSE}
+
+global_mobility <- readr::read_csv("./global-mobility-data/Global_Mobility_Report.csv", guess_max = 1e6)  # global mobility data
+
+global_mobility %<>%
+  mutate(date = as.Date(date))
+
+```
+
+The data used for the analysis below is current through `r format(max(global_mobility$date), '%B %d, %Y')`.
+
+<br>
+
+```{r global_mobility}
+regions <- readr::read_csv("../library/regions.csv")
+
+df_highlights <- global_mobility %>% 
+  filter(
+    is.na(sub_region_1),
+    is.na(sub_region_2),
+    country_region %in% c(
+                          "United States",
+                          "Canada",
+                          "Italy",
+                          "Spain",
+                          "United Kingdom",
+                          "France",
+                          "Sweden"
+                          )
+  ) %>% 
+  rename(country = country_region)
+
+p <- global_mobility %>% 
+  left_join(regions, by = c("country_region" = "country")) %>% 
+  filter(
+    is.na(sub_region_1),
+    is.na(sub_region_2),
+    continent %in% c(
+                     "Europe",
+                     "North America"
+                     )
+  ) %>% 
+  rename(country = country_region) %>% 
+  ggplot(aes(date, retail_and_recreation_percent_change_from_baseline, group = country)) +
+    geom_hline(
+      yintercept = 0,
+      color = "darkgrey",
+    ) +
+    geom_smooth(
+      color = "#dddddd",
+      se = FALSE,
+      method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
+      size = 0.5
+    ) +
+    geom_smooth(
+      data = df_highlights,
+      aes(
+        date, retail_and_recreation_percent_change_from_baseline,
+        color = fct_reorder(country, desc(retail_and_recreation_percent_change_from_baseline))
+      ),
+      se = FALSE,
+      method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
+      size = 1.2
+    ) +
+    labs(
+      title = "Community Mobility - North America and Europe",
+      subtitle = "Retail and Recreation",
+      x = "",
+      y = "change from baseline (%)",
+      color = "country"
+    ) +
+    ggsci::scale_color_jco()
+      
+#plotly::ggplotly(p, tooltip = "country")
+p
+
+```
+
+---
+
+<br>
+
+## United States
+
+<br>
+
+```{r us_mobility}
+
+# United States
+us_mobility <- global_mobility %>%  # u.s. mobility data
+  filter(
+    country_region_code == "US"
+  ) %>%
+  rename(
+    country = country_region,  # country
+    state = sub_region_1,  # state
+    cnty = sub_region_2  # county
+  ) %>%
+  select(
+    -country_region_code,
+    -(iso_3166_2_code:census_fips_code)
+  )
+
+us_mobility_pivot <- us_mobility %>%
+  setNames(gsub("_percent_change_from_baseline", "", names(.))) %>%
+  pivot_longer(cols = retail_and_recreation:residential, names_to = "activity_category", values_to = "change_from_baseline")
+
+
+us_mobility_pivot %>%
+  filter(
+    is.na(state),
+    is.na(cnty),
+    activity_category %in% c(
+                             "retail_and_recreation",
+                             "parks",
+                             "residential",
+                             "transit_stations"
+                             )
+  ) %>%  # u.s. country-level data
+  ggplot(aes(date, change_from_baseline, group = activity_category)) +
+    geom_hline(
+      yintercept = 0,
+      color = "darkgrey",
+    ) +
+    geom_vline(
+      xintercept = as.Date("2020-03-13"),
+      color = "grey",
+      size = 1,
+      linetype = "dotted"
+    ) + # u.s. declares national emergency
+    geom_smooth(
+      aes(color = activity_category),
+      se = FALSE,
+      method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
+      size = 1.2
+    ) +
+    coord_cartesian(
+      xlim = as.Date(c("2020-03-13", NA))
+    ) +
+    labs(
+      title = "Community Mobility - United States",
+      x = "", y = "change from baseline (%)",
+      color = "activity"
+    ) +
+    scale_color_jco()
+
+```
+
+**Note:**  The dotted grey line on each of the mobility charts represents the March 13, 2020 date on which the U.S. declared a [National Emergency Concerning the Novel Coronavirus Disease (COVID-19) Outbreak](https://www.whitehouse.gov/presidential-actions/proclamation-declaring-national-emergency-concerning-novel-coronavirus-disease-covid-19-outbreak/).
+
+<br>
+
+---
+
+<br>
+
+## Individual States
+
+<br>
+
+```{r state_mobility}
+us_mobility_pivot %>%
+  filter(
+    is.na(cnty),
+    activity_category %in% c(
+                             "retail_and_recreation",
+                             "transit_stations"
+                             ),
+    state %in% c(
+                 "California",
+                 "Texas",
+                 "Arizona",
+                 "Florida",
+                 "Oklahoma",
+                 "South Carolina",
+                 "New York",
+                 "District of Columbia"
+                 )
+  ) %>%
+  ggplot(aes(date, change_from_baseline, color = state)) +
+    geom_hline(
+      yintercept = 0,
+      color = "darkgrey",
+    ) +
+    geom_vline(
+      xintercept = as.Date("2020-03-13"),
+      color = "grey",
+      size = 1,
+      linetype = "dotted"
+    ) + # u.s. declares national emergency
+    geom_smooth(
+      se = FALSE,
+      method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
+      size = 1.2
+    ) +
+    coord_cartesian(
+      xlim = as.Date(c("2020-03-13", NA)),
+      ylim = c(-75, 10)
+    ) +
+    facet_grid(. ~ activity_category) +
+    labs(
+      title = "Community Mobility - States",
+      x = "", y = "change from baseline (%)",
+      color = "state"
+    ) +
+    scale_color_jco()
+
+```
+
+```{r, include = FALSE}
 beepr::beep(2)
 ```
