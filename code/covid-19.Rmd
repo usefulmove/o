@@ -117,7 +117,7 @@ coverall <- function(state_name = "United States") {
   }
 
   # display new cases and new deaths
-  scale_d <- 5
+  scale_d <- 7
 
   p <- ggplot(data = s, mapping = aes(x = date)) +
     geom_area(aes(y = cases, fill = "#ff9933"),
@@ -178,28 +178,28 @@ covid <- function(state_name = "United States") {
   )
 
   # display new cases and new deaths
-  scale_d <- 5
+  scale_d <- 7
 
   p <- ggplot(data = s, mapping = aes(x = date)) +
     geom_smooth(aes(y = ndeaths * scale_d),
       se = FALSE,
-      color = "darkgrey", fill = "grey85",
+      color = "#868686", fill = "grey85",
       method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
       na.rm = TRUE
     ) +
     geom_smooth(aes(y = ncases),
       se = FALSE,
-      color = "darkgrey", fill = "grey85",
+      color = "#868686", fill = "grey85",
       method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
       na.rm = TRUE
     ) +
     geom_point(aes(y = ndeaths * scale_d, fill = sec_color),
       shape = 21, color = "black",
-      size = 2, na.rm = TRUE, alpha = 0.8
+      size = 1.5, na.rm = TRUE, alpha = 0.8
     ) +
     geom_point(aes(y = ncases, fill = prim_color),
       shape = 21, color = "black",
-      size = 2, na.rm = TRUE, alpha = 0.8
+      size = 1.5, na.rm = TRUE, alpha = 0.8
     ) +
     labs(
       title = state_name,
@@ -242,7 +242,7 @@ coverallc <- function(county_state) {
   c <- get_county(county_name, state_name)
 
   # display new cases and new deaths
-  scale_d <- 5
+  scale_d <- 7
 
   p <- ggplot(data = c, mapping = aes(x = date)) +
     geom_area(aes(y = cases, fill = "#ff9933"),
@@ -306,28 +306,28 @@ covidc <- function(county_state) {
   )
 
   # display new cases and new deaths
-  scale_d <- 5
+  scale_d <- 7
 
   p <- ggplot(data = c, mapping = aes(x = date)) +
     geom_smooth(aes(y = ndeaths * scale_d),
       se = FALSE,
-      color = "darkgrey", fill = "grey85",
+      color = "#868686", fill = "grey85",
       method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
       na.rm = TRUE
     ) +
     geom_smooth(aes(y = ncases),
       se = FALSE,
-      color = "darkgrey", fill = "grey85",
+      color = "#868686", fill = "grey85",
       method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
       na.rm = TRUE
     ) +
     geom_point(aes(y = ndeaths * scale_d, fill = sec_color),
       shape = 21, color = "black",
-      size = 2, na.rm = TRUE, alpha = 0.8
+      size = 1.5, na.rm = TRUE, alpha = 0.8
     ) +
     geom_point(aes(y = ncases, fill = prim_color),
       shape = 21, color = "black",
-      size = 2, na.rm = TRUE, alpha = 0.8
+      size = 1.5, na.rm = TRUE, alpha = 0.8
     ) +
     labs(
       title = str_glue("{county_name} County, {state_name}"),
@@ -522,19 +522,17 @@ state_df %>%
 ```
 
 ```{r state_charts, include = FALSE}
-state_ylim <- 4250
-
-p1 <- covid("Florida") + coord_cartesian(ylim = c(0, state_ylim))
-p2 <- covid("California") + coord_cartesian(ylim = c(0, state_ylim))
-p3 <- covid("Texas") + coord_cartesian(ylim = c(0, state_ylim))
-p4 <- covid("Arizona") + coord_cartesian(ylim = c(0, state_ylim))
-p5 <- covid("Georgia") + coord_cartesian(ylim = c(0, state_ylim))
-p6 <- covid("South Carolina") + coord_cartesian(ylim = c(0, state_ylim))
+p1 <- covid("Florida")
+p2 <- covid("California")
+p3 <- covid("Texas")
+p4 <- covid("Arizona")
+p5 <- covid("Georgia")
+p6 <- covid("South Carolina")
 ```
 
 <br><br>
 
-```{r disp_state_charts, fig.asp=1.6}
+```{r disp_state_charts, fig.asp=1.8}
 grid.arrange(p1, p2, p3, p4, p5, p6, nrow = 3)
 ```
 
@@ -634,7 +632,7 @@ p <- global_mobility %>%
   ggplot(aes(date, retail_and_recreation_percent_change_from_baseline, group = country)) +
     geom_hline(
       yintercept = 0,
-      color = "darkgrey",
+      color = "grey",
     ) +
     geom_smooth(
       color = "#dddddd",
@@ -710,7 +708,7 @@ us_mobility_pivot %>%
   ggplot(aes(date, change_from_baseline, group = activity_category)) +
     geom_hline(
       yintercept = 0,
-      color = "darkgrey",
+      color = "grey",
     ) +
     geom_vline(
       xintercept = as.Date("2020-03-13"),
@@ -770,7 +768,7 @@ us_mobility_pivot %>%
   ggplot(aes(date, change_from_baseline, color = state)) +
     geom_hline(
       yintercept = 0,
-      color = "darkgrey",
+      color = "grey",
     ) +
     geom_vline(
       xintercept = as.Date("2020-03-13"),
