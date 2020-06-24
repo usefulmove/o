@@ -38,8 +38,6 @@ The risk assessment methodology used in this analysis has not been validated and
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(
   echo = FALSE,
-  #fig.width = 4.75,
-  #fig.height = 3.5,
   out.width = "100%",
   fig.asp = 0.8,
   fig.align = "center",
@@ -55,8 +53,8 @@ library(RColorBrewer)
 library(magrittr)
 library(ggsci)
 
-prim_color <- "#fcab18"
-sec_color <- "#00c0ff"
+prim_color <- pal_jco()(10)[2]
+sec_color <- pal_jco()(10)[1]
 
 theme_set(theme_minimal())
 ```
@@ -104,59 +102,6 @@ get_county <- function(county_name, state_name) {
   }
 
   c
-}
-
-coverall <- function(state_name = "United States") {
-  if (state_name == "United States") {
-    s <- us
-    chart_caption <- "(data from nytimes)"
-  }
-  else {
-    s <- get_state(state_name)
-    chart_caption <- ""
-  }
-
-  # display new cases and new deaths
-  scale_d <- 7
-
-  p <- ggplot(data = s, mapping = aes(x = date)) +
-    geom_area(aes(y = cases, fill = "#ff9933"),
-      na.rm = TRUE, alpha = 0.8
-    ) +
-    geom_area(aes(y = deaths * scale_d, fill = "#6db96b"),
-      na.rm = TRUE, alpha = 0.8
-    ) +
-    labs(
-      title = state_name,
-      x = "",
-      y = "cases",
-      fill = "",
-      caption = chart_caption
-    ) +
-    scale_y_continuous(
-      labels = scales::comma,
-      sec.axis = sec_axis(~ . / scale_d,
-                          name = "deaths",
-                          labels = scales::comma
-                 )
-    ) +
-    coord_cartesian(xlim = as.Date(c("2020-03-15",
-                                     Sys.Date()
-                                     ),
-                                   origin = "1960-10-01"
-                           ),
-                    ylim = c(0, max(s$cases))
-    ) +
-    scale_fill_manual(
-      labels = c("deaths", "cases"),
-      values = c("#ff9933", "#6db96b")
-    ) +
-    theme(
-      legend.position = "bottom",
-      text = element_text(size = 10)
-    )
-
-  p
 }
 
 covid <- function(state_name = "United States") {
@@ -225,61 +170,6 @@ covid <- function(state_name = "United States") {
     scale_fill_manual(
       labels = c("deaths", "cases"),
       values = c(prim_color, sec_color)
-    ) +
-    theme(
-      legend.position = "bottom",
-      text = element_text(size = 10)
-    )
-
-  p
-}
-
-coverallc <- function(county_state) {
-  county_name <- str_trim(str_split_fixed(county_state, ",", n = 2)[1])
-  state_name <- str_trim(str_split_fixed(county_state, ",", n = 2)[2])
-
-
-  c <- get_county(county_name, state_name)
-
-  # display new cases and new deaths
-  scale_d <- 7
-
-  p <- ggplot(data = c, mapping = aes(x = date)) +
-    geom_area(aes(y = cases, fill = "#ff9933"),
-      na.rm = TRUE, alpha = 0.8
-    ) +
-    geom_area(aes(y = deaths * scale_d, fill = "#6db96b"),
-      na.rm = TRUE, alpha = 0.8
-    ) +
-    labs(
-      title = str_glue("{county_name} County, {state_name}"),
-      x = "",
-      y = "cases",
-      fill = ""
-    ) +
-    scale_x_date(limits = as.Date(c("2020-03-01",
-                                    Sys.Date()
-                                    ),
-                                  origin = "1960-10-01"
-                          )
-    ) +
-    scale_y_continuous(
-      labels = scales::comma,
-      sec.axis = sec_axis(~ . / scale_d,
-                          name = "deaths",
-                          labels = scales::comma
-                 )
-    ) +
-    coord_cartesian(xlim = as.Date(c("2020-03-01",
-                                     Sys.Date()
-                                     ),
-                                   origin = "1960-10-01"
-                           ),
-                    ylim = c(0, max(c$cases))
-    ) +
-    scale_fill_manual(
-      labels = c("deaths", "cases"),
-      values = c("#ff9933", "#6db96b")
     ) +
     theme(
       legend.position = "bottom",
@@ -367,6 +257,126 @@ covidc <- function(county_state) {
   p
 }
 
+covid_total <- function(state_name = "United States") {
+  if (state_name == "United States") {
+    s <- us
+    chart_caption <- "(data from nytimes)"
+  }
+  else {
+    s <- get_state(state_name)
+    chart_caption <- ""
+  }
+
+  # display new cases and new deaths
+  scale_d <- 7
+
+  p <- ggplot(data = s, mapping = aes(x = date)) +
+    geom_area(
+      aes(y = cases, fill = prim_color),
+      na.rm = TRUE,
+      alpha = 0.8,
+      color = "black"
+    ) +
+    geom_area(
+      aes(y = deaths * scale_d, fill = sec_color),
+      na.rm = TRUE,
+      alpha = 1.0,
+      color = "black"
+    ) +
+    labs(
+      title = state_name,
+      x = "",
+      y = "cases",
+      fill = "",
+      caption = chart_caption
+    ) +
+    scale_y_continuous(
+      labels = scales::comma,
+      sec.axis = sec_axis(~ . / scale_d,
+                          name = "deaths",
+                          labels = scales::comma
+                 )
+    ) +
+    coord_cartesian(xlim = as.Date(c("2020-03-15",
+                                     Sys.Date()
+                                     ),
+                                   origin = "1960-10-01"
+                           ),
+                    ylim = c(0, max(s$cases))
+    ) +
+    scale_fill_manual(
+      labels = c("deaths", "cases"),
+      values = c(prim_color, sec_color)
+    ) +
+    theme(
+      legend.position = "bottom",
+      text = element_text(size = 10)
+    )
+
+  p
+}
+
+covidc_total <- function(county_state) {
+  county_name <- str_trim(str_split_fixed(county_state, ",", n = 2)[1])
+  state_name <- str_trim(str_split_fixed(county_state, ",", n = 2)[2])
+
+
+  c <- get_county(county_name, state_name)
+
+  # display new cases and new deaths
+  scale_d <- 7
+
+  p <- ggplot(data = c, mapping = aes(x = date)) +
+   geom_area(
+      aes(y = cases, fill = prim_color),
+      na.rm = TRUE,
+      alpha = 0.8,
+      color = "black"
+    ) +
+    geom_area(
+      aes(y = deaths * scale_d, fill = sec_color),
+      na.rm = TRUE,
+      alpha = 1.0,
+      color = "black"
+    ) + 
+    labs(
+      title = str_glue("{county_name} County, {state_name}"),
+      x = "",
+      y = "cases",
+      fill = ""
+    ) +
+    scale_x_date(limits = as.Date(c("2020-03-01",
+                                    Sys.Date()
+                                    ),
+                                  origin = "1960-10-01"
+                          )
+    ) +
+    scale_y_continuous(
+      labels = scales::comma,
+      sec.axis = sec_axis(~ . / scale_d,
+                          name = "deaths",
+                          labels = scales::comma
+                 )
+    ) +
+    coord_cartesian(xlim = as.Date(c("2020-03-01",
+                                     Sys.Date()
+                                     ),
+                                   origin = "1960-10-01"
+                           ),
+                    ylim = c(0, max(c$cases))
+    ) +
+    scale_fill_manual(
+      labels = c("deaths", "cases"),
+      values = c(prim_color, sec_color)
+    ) +
+    theme(
+      legend.position = "bottom",
+      text = element_text(size = 10)
+    )
+
+  p
+}
+
 calculate_risk_estimate_state <- function(state_name) {
   s <- get_state(state_name)
 
@@ -407,7 +417,7 @@ us <- us %>%
     ndeaths = deaths - lag(deaths, default = deaths[1])
   )
 
-p_us_overall <- coverall()
+p_us_total <- covid_total()
 p_us <- covid()
 ```
 
@@ -476,8 +486,8 @@ There have been `r format( total_us_cases, big.mark="," )` COVID-19 cases (`r fo
 
 <br><br>
 
-```{r country_chart_overall}
-p_us_overall
+```{r country_chart_total}
+p_us_total
 ```
 
 <br><br>
@@ -545,10 +555,11 @@ grid.arrange(p1, p2, p3, p4, p5, p6, nrow = 3)
 ## Individual Counties
 
 ```{r county_estimates}
-get_palette <- colorRampPalette(brewer.pal(9, "Set1"))
+base_palette_len <- 10
+get_palette <- colorRampPalette(pal_jco()(base_palette_len))
 
 n_states <- n_distinct(county_table$state)
-palette_len <- ifelse(n_states > 9, n_states, 9)
+palette_len <- ifelse(n_states > base_palette_len, n_states, base_palette_len)
 
 county_table %>%
   mutate(county = fct_reorder(county, risk_estimate)) %>%
