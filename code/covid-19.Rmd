@@ -338,7 +338,7 @@ covidc_total <- function(county_state) {
       na.rm = TRUE,
       alpha = 1.0,
       color = "black"
-    ) + 
+    ) +
     labs(
       title = str_glue("{county_name} County, {state_name}"),
       x = "",
@@ -590,8 +590,7 @@ county_table %>%
 
 # Global Mobility Data
 
-
-For the purpose of assisting the global COVID-19 pandemic response, Google has temporarily made available detailed mobility estimates relative to local baselines obtained from cell phone and other data of the type used to by services like Google Maps. This data is provided by Google in the form of [Community Mobility Reports](https://www.google.com/covid19/mobility/).
+For the purpose of assisting the global COVID-19 pandemic response, Google has temporarily made available detailed mobility estimates relative to local baselines obtained from cell phone and other data of the type used by traffic, etc., services like Google Maps and Waze. This data is provided by Google in the form of [Community Mobility Reports](https://www.google.com/covid19/mobility/).
 
 >As global communities respond to COVID-19, we've heard from public health officials that the same type of aggregated, anonymized insights we use in products such as Google Maps could be helpful as they make critical decisions to combat COVID-19.
 >
@@ -613,7 +612,7 @@ The data used for the analysis below is current through `r format(max(global_mob
 ```{r global_mobility}
 regions <- readr::read_csv("../library/regions.csv")
 
-df_highlights <- global_mobility %>% 
+df_highlights <- global_mobility %>%
   filter(
     is.na(sub_region_1),
     is.na(sub_region_2),
@@ -626,11 +625,11 @@ df_highlights <- global_mobility %>%
                           "France",
                           "Sweden"
                           )
-  ) %>% 
+  ) %>%
   rename(country = country_region)
 
-p <- global_mobility %>% 
-  left_join(regions, by = c("country_region" = "country")) %>% 
+p <- global_mobility %>%
+  left_join(regions, by = c("country_region" = "country")) %>%
   filter(
     is.na(sub_region_1),
     is.na(sub_region_2),
@@ -638,8 +637,8 @@ p <- global_mobility %>%
                      "Europe",
                      "North America"
                      )
-  ) %>% 
-  rename(country = country_region) %>% 
+  ) %>%
+  rename(country = country_region) %>%
   ggplot(aes(date, retail_and_recreation_percent_change_from_baseline, group = country)) +
     geom_hline(
       yintercept = 0,
@@ -669,7 +668,7 @@ p <- global_mobility %>%
       color = "country"
     ) +
     ggsci::scale_color_jco()
-      
+
 #plotly::ggplotly(p, tooltip = "country")
 p
 
