@@ -51,9 +51,11 @@ The New York Times has also provided public human coronavirus disease case and d
 >
 >The data begins with the first reported coronavirus case in Washington State on Jan. 21, 2020. We will publish regular updates to the data in this repository.
 
+<br>
+
 ## Data Analysis
 
-The COVID-19 data in the New York Times GitHub repository is structured as three main comma-separated value data files---one top-level country summary file, one state-level summary file, and one data file containing reported case and death data for each individual U.S. county. Each of these is used for this analysis. The data from each of these files is used to calculate the rate of reported new cases and deaths for each state and county, and these rates are used to build a predictive model by linear regression using least-squares methods for each entity. A risk estimate is generated from these models, and the states and counties with the highest estimated risk are compared in the charts shown in this document. In the charts showing new reported cases and deaths, a generalized additive model (GAM) smoothing function was fit to each data set.
+The COVID-19 data in the New York Times GitHub repository is structured as three main comma-separated value data files---one top-level country summary file, one state-level summary file, and one data file containing reported case and death data for each individual U.S. county. Each of these is used for this analysis. The data from each of these files is used to calculate the rate of reported new cases and deaths for each state and county, and these rates are used to build a predictive model by linear regression using least-squares methods for each entity. A risk estimate (ρ) is generated from these models, and the states and counties with the highest estimated risk are compared in the charts shown in this document. In the charts showing new reported cases and deaths, a generalized additive model (GAM) smoothing function was fit to each data set.
 
 The risk assessment methodology used in this analysis has not been validated and is subject to noise in the data. There is a phenomenon that has been reported in the White House press briefings about the COVID-19 response whereby some counties report updates to the county data on Mondays for the incremental changes over the weekend. In fact, cyclical weekly variation can be seen in the reported case and death data. This limits the accuracy of the model to some extent. To enable more robustness to this variation in the estimation of risk, data over a several-day period is used as a compromise between speed of detection of a significant change in the risk estimate and estimation error due to high sensitivity to noise in the data.
 
@@ -76,6 +78,7 @@ library(lubridate)
 library(RColorBrewer)
 library(magrittr)
 library(ggsci)
+source("../library/ded/ded.R")
 
 prim_color <- pal_jco()(10)[2]
 sec_color <- pal_jco()(10)[1]
@@ -850,11 +853,12 @@ p <- community_mobility %>%
       method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
       size = 1.2
     ) +
+    scale_y_continuous(labels = scales::label_percent(scale = 1)) +
     labs(
       title = "Community Mobility - North America and Europe",
-      subtitle = "Retail and Recreation",
+      subtitle = "retail and recreation",
       x = "",
-      y = "change from baseline (%)",
+      y = "change from baseline",
       color = "country"
     ) +
     ggsci::scale_color_jco()
@@ -905,6 +909,11 @@ us_mobility_pivot %>%
                              "transit_stations"
                              )
   ) %>%  # u.s. country-level data
+  ded_recode(
+    activity_category,
+    "retail and recreation=retail_and_recreation",
+    "transit stations=transit_stations"
+  ) %>% 
   ggplot(aes(date, change_from_baseline, group = activity_category)) +
     geom_hline(
       yintercept = 0,
@@ -925,9 +934,10 @@ us_mobility_pivot %>%
     coord_cartesian(
       xlim = as.Date(c("2020-03-13", NA))
     ) +
+    scale_y_continuous(labels = scales::label_percent(scale = 1)) +
     labs(
       title = "Community Mobility - United States",
-      x = "", y = "change from baseline (%)",
+      x = "", y = "change from baseline",
       color = "activity"
     ) +
     scale_color_jco()
@@ -965,6 +975,11 @@ us_mobility_pivot %>%
                  "District of Columbia"
                  )
   ) %>%
+  ded_recode(
+    activity_category,
+    "retail and recreation=retail_and_recreation",
+    "transit stations=transit_stations"
+  ) %>% 
   ggplot(aes(date, change_from_baseline, color = state)) +
     geom_hline(
       yintercept = 0,
