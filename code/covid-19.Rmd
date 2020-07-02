@@ -1,7 +1,8 @@
 ---
 title: "COVID-19 Risk Modeling"
 output:
-  html_document: default
+  html_document:
+    css: custom.css
 ---
 
 `r format(Sys.time(), '%B %d, %Y')`
@@ -17,7 +18,30 @@ text-align: justify}
 
 # Background
 
-The U.S. country, state, and county health data used for this analysis is pulled directly from the New York Times COVID-19 GitHub repository (https://github.com/nytimes/covid-19-data) using `git pull` requests. The predictive analytics model is constructed in the R programming language using [RStudio](https://rstudio.com) and the [Tidyverse](https://www.tidyverse.org/) family of packages.
+## Open Access Coronavirus Disease Epidemiological Data
+
+### Johns Hopkins University
+
+The Center for Systems Science and Engineering (CSSE) at Johns Hopkins University provides a public, global COVID-19 Github repository (https://github.com/CSSEGISandData/COVID-19) with anonymous patient data aggregated from a number of sources.
+
+>We have built a centralised repository of individual-level information on patients with laboratory-confirmed COVID-19 (in China, confirmed by detection of virus nucleic acid at the City and Provincial Centers for Disease Control and Prevention), including their travel history, location (highest resolution available and corresponding latitude and longitude), symptoms, and reported onset dates, as well as confirmation dates and basic demographics. Information is collated from a variety of sources, including official reports from WHO, Ministries of Health, and Chinese local, provincial, and national health authorities. If additional data are available from reliable online reports, they are included. Data are available openly and are updated on a regular basis (around twice a day).
+
+CSSE Data Sources (partial list):
+
+- World Health Organization (WHO): https://www.who.int
+- European Centre for Disease Prevention and Control (ECDC): https://www.ecdc.europa.eu/en/geographical-distribution-2019-ncov-cases
+- US CDC: https://www.cdc.gov/coronavirus/2019-ncov/index.html
+- DXY.cn. Pneumonia. 2020. http://3g.dxy.cn/newh5/view/pneumonia
+- BNO News: https://bnonews.com/index.php/2020/02/the-latest-coronavirus-cases
+- WorldoMeters: https://www.worldometers.info/coronavirus
+- 1Point3Arces: https://coronavirus.1point3acres.com/en
+- COVID Tracking Project: https://covidtracking.com/data
+
+The CSSE data are used for all global analyses in this document.
+
+### The New York Times
+
+The New York Times has also provided public human coronavirus disease case and death data for the United States by county and by state. The U.S. data used for this analysis is pulled directly from The New York Times COVID-19 Github repository (https://github.com/nytimes/covid-19-data).
 
 >The New York Times is releasing a series of data files with cumulative counts of coronavirus cases in the United States, at the state and county level, over time. We are compiling this time series data from state and local governments and health departments in an attempt to provide a complete record of the ongoing outbreak.
 >
@@ -27,14 +51,14 @@ The U.S. country, state, and county health data used for this analysis is pulled
 >
 >The data begins with the first reported coronavirus case in Washington State on Jan. 21, 2020. We will publish regular updates to the data in this repository.
 
-<br><br>
-
-# Data Analysis
+## Data Analysis
 
 The COVID-19 data in the New York Times GitHub repository is structured as three main comma-separated value data files---one top-level country summary file, one state-level summary file, and one data file containing reported case and death data for each individual U.S. county. Each of these is used for this analysis. The data from each of these files is used to calculate the rate of reported new cases and deaths for each state and county, and these rates are used to build a predictive model by linear regression using least-squares methods for each entity. A risk estimate is generated from these models, and the states and counties with the highest estimated risk are compared in the charts shown in this document. In the charts showing new reported cases and deaths, a generalized additive model (GAM) smoothing function was fit to each data set.
 
-The risk assessment methodology used in this analysis has not been validated and is subject to noise in the data. There is a phenomenon that has been reported in the White House press briefings about the COVID-19 response whereby some counties report updates to the county data on Mondays for the incremental changes over the weekend. This will negatively affect the accuracy of the model to some degree. To enable more robustness in the risk estimation algorithm, data over a 10-day period us used as a compromise between speed of detection of a change in risk and errors due to high sensitivity to noise in the data.
+The risk assessment methodology used in this analysis has not been validated and is subject to noise in the data. There is a phenomenon that has been reported in the White House press briefings about the COVID-19 response whereby some counties report updates to the county data on Mondays for the incremental changes over the weekend. In fact, cyclical weekly variation can be seen in the reported case and death data. This limits the accuracy of the model to some extent. To enable more robustness to this variation in the estimation of risk, data over a several-day period is used as a compromise between speed of detection of a significant change in the risk estimate and estimation error due to high sensitivity to noise in the data.
 
+The predictive analytics model is built with the open-source [R programming language](https://en.wikipedia.org/wiki/R_(programming_language) using the [Tidyverse](https://www.tidyverse.org/) family of packages.
+ 
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(
   echo = FALSE,
@@ -59,7 +83,47 @@ sec_color <- pal_jco()(10)[1]
 theme_set(theme_minimal())
 ```
 
-```{r import_and_tidy, include = FALSE}
+```{r csse_tidy}
+# import data
+global_cases <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv")
+
+global_deaths <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv")
+
+eu_countries <- read_csv("../library/eu-countries.csv")
+
+# tidy data
+#
+#   data comes in an untidy format with date columns containing the cumulative number of case or death entries
+
+global_cases <- global_cases %>% 
+  pivot_longer(
+    cols = 5:ncol(global_cases),
+    names_to = "date",
+    values_to = "cases"
+  ) %>% 
+  rename(
+    province = `Province/State`,
+    country = `Country/Region`,
+    latitude = Lat,
+    longitude = Long
+  ) %>% 
+  mutate(
+    date = lubridate::mdy(date)
+  )
+
+eu_cases <- global_cases %>% 
+  filter(country %in% c(eu_countries$Country, "Czechia"))
+
+eu_combined_cases <- eu_cases %>% 
+  group_by(date) %>% 
+  summarise(cases = sum(cases)) %>% 
+  mutate(
+    ncases = cases - lag(cases, default = cases[1])
+  )
+  
+```
+
+```{r nytimes_tidy, include = FALSE}
 data_path <- "../../../covid-19-data/"
 
 # united states
@@ -409,7 +473,7 @@ calculate_risk_estimate_county_c <- compiler::cmpfun(calculate_risk_estimate_cou
 ```
 
 ```{r country, include = FALSE}
-## u.s. analysis ##
+# u.s. analysis
 
 us <- us %>%
   mutate(
@@ -422,7 +486,7 @@ p_us <- covid()
 ```
 
 ```{r states, include = FALSE}
-### state analysis ###
+# state analysis
 
 # calculate state risk estimates
 state_risk_estimates <- states %>% distinct(state)
@@ -467,13 +531,9 @@ county_table <- county_risk_estimates %>% # highest risk estimates
 
 ---
 
-<br>
-
 # Summary Results
 
-<br>
-
-## United States
+### U.S.
 
 ```{r country_summary, include = FALSE}
 total_us_cases <- us_live$cases[nrow(us_live)]
@@ -482,7 +542,7 @@ total_us_deaths <- us_live$deaths[nrow(us_live)]
 current_us_ndeaths <- us$ndeaths[nrow(us)]
 ```
 
-There have been `r format( total_us_cases, big.mark="," )` COVID-19 cases (`r format( current_us_ncases, big.mark="," )` new cases per day) and `r format( total_us_deaths, big.mark="," )` deaths (`r format( current_us_ndeaths, big.mark="," )` new deaths per day) in the United States.
+There have been `r format( total_us_cases, big.mark="," )` total COVID-19 cases (`r format( current_us_ncases, big.mark="," )` new cases per day) and `r format( total_us_deaths, big.mark="," )` deaths (`r format( current_us_ndeaths, big.mark="," )` new deaths per day) in the United States to date.
 
 <br><br>
 
@@ -496,13 +556,89 @@ p_us_total
 p_us
 ```
 
+<br><br>
+
+```{r us_eu}
+eu_color <- "dimgrey"
+
+us %>% 
+  ggplot(mapping = aes(x = date)) +
+    # European Union
+    geom_smooth(
+      data = eu_combined_cases,
+      aes(date, ncases),
+      se = FALSE,
+      color = eu_color, fill = "grey85",
+      method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
+      size = 1.0,
+      na.rm = TRUE,
+      show.legend = FALSE
+    ) +
+    geom_point(
+      data = eu_combined_cases,
+      aes(date, ncases, fill = eu_color),
+      color = eu_color,
+      size = 1.3, na.rm = TRUE, alpha = 0.8,
+      show.legend = FALSE
+    ) +
+    annotate(
+      geom = "text",
+      label = "European Union",
+      x = as.Date("2020-06-16"),
+      y = 8600,
+      color = eu_color,
+      size = 4.5
+    ) +
+    # United States
+    geom_smooth(
+      aes(y = ncases),
+      se = FALSE,
+      color = sec_color, fill = "grey85",
+      method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
+      size = 1.2,
+      na.rm = TRUE,
+      show.legend = FALSE
+    ) +
+    geom_point(
+      aes(y = ncases, fill = prim_color),
+      color = sec_color,
+      size = 1.5, na.rm = TRUE, alpha = 0.8,
+      show.legend = FALSE
+    ) +
+    annotate(
+      geom = "text",
+      label = "United States",
+      x = as.Date("2020-06-10"),
+      y = 37500,
+      color = sec_color,
+      size = 4.5
+    ) +
+    labs(
+      title = "COVID-19 Case Rates:  United States and European Union",
+      x = "",
+      y = "cases (change)",
+      fill = "",
+      caption = "(data from nytimes and johns hopkins univ.)"
+    ) +
+    scale_y_continuous(
+      labels = scales::comma
+    ) +
+    coord_cartesian(xlim = as.Date(c("2020-03-01",
+                                     Sys.Date()
+                                     ),
+                                   origin = "1960-10-01"
+                           )
+    )
+
+```
+
 <br>
 
 ---
 
 <br>
 
-## Individual States
+### Individual States
 
 ```{r state_estimates}
 alarm <- 25
@@ -552,7 +688,7 @@ grid.arrange(p1, p2, p3, p4, p5, p6, nrow = 3)
 
 <br>
 
-## Individual Counties
+### Counties
 
 ```{r county_estimates}
 base_palette_len <- 10
@@ -582,15 +718,51 @@ county_table %>%
     coord_flip()
 ```
 
+<br>
+
+---
+
+<br>
+
+### Data Abnormalities
+
+Analysis of the reported death data in the U.S. reveals a repeating weekly pattern in which the updates on Sunday and Monday are consistently lower than those reported on the other days of the week. As mentioned in the data analysis description in the Background section, the risk estimation algorithm has been configured to reduce the effect of this variation on the statistical model.
+
+<br>
+
+```{r day_of_week, out.width = "65%"}
+us %>% 
+  mutate(day = wday(date, label = TRUE)) %>% 
+  group_by(day) %>% 
+  summarise(
+    mean_ncases = mean(ncases),
+    mean_ndeaths = mean(ndeaths),
+    .groups = "drop"
+  ) %>% 
+  ggplot(aes(day, mean_ndeaths)) +
+    geom_col(
+      fill = sec_color,
+      color = "black",
+      alpha = 0.8
+    ) +
+    labs(
+      title = "Average Number of Reported Deaths by Day of the Week",
+      x = "day of week reported",
+      y = "mean"
+    ) +
+    scale_y_continuous(labels = scales::comma)
+
+```
+
 <br><br>
 
 ---
 
 <br>
 
-# Global Mobility Data
+# Community Mobility Data
 
-For the purpose of assisting the global COVID-19 pandemic response, Google has temporarily made available detailed mobility estimates relative to local baselines obtained from cell phone and other data of the type used by traffic, etc., services like Google Maps and Waze. This data is provided by Google in the form of [Community Mobility Reports](https://www.google.com/covid19/mobility/).
+For the purpose of assisting the global COVID-19 pandemic response, Google has made available detailed mobility estimates relative to local baselines obtained from mobile phone and other data of the type used by traffic, etc., services like Google Maps and Waze. The data are provided by Google in the form of [Community Mobility Reports](https://www.google.com/covid19/mobility/).
 
 >As global communities respond to COVID-19, we've heard from public health officials that the same type of aggregated, anonymized insights we use in products such as Google Maps could be helpful as they make critical decisions to combat COVID-19.
 >
@@ -598,21 +770,21 @@ For the purpose of assisting the global COVID-19 pandemic response, Google has t
 
 ```{r mobility_import, include = FALSE}
 
-global_mobility <- readr::read_csv("./global-mobility-data/Global_Mobility_Report.csv", guess_max = 1e6)  # global mobility data
+community_mobility <- readr::read_csv("./global-mobility-data/Global_Mobility_Report.csv", guess_max = 1e6)  # global mobility data
 
-global_mobility %<>%
+community_mobility <- community_mobility %>%
   mutate(date = as.Date(date))
 
 ```
 
-The data used for the analysis below is current through `r format(max(global_mobility$date), '%B %d, %Y')`.
+The data used for the analysis below is current through `r format(max(community_mobility$date), '%B %d, %Y')`.
 
 <br>
 
-```{r global_mobility}
+```{r community_mobility}
 regions <- readr::read_csv("../library/regions.csv")
 
-df_highlights <- global_mobility %>%
+df_highlights <- community_mobility %>%
   filter(
     is.na(sub_region_1),
     is.na(sub_region_2),
@@ -628,7 +800,7 @@ df_highlights <- global_mobility %>%
   ) %>%
   rename(country = country_region)
 
-p <- global_mobility %>%
+p <- community_mobility %>%
   left_join(regions, by = c("country_region" = "country")) %>%
   filter(
     is.na(sub_region_1),
@@ -678,14 +850,14 @@ p
 
 <br>
 
-## United States
+### U.S.
 
 <br>
 
 ```{r us_mobility}
 
 # United States
-us_mobility <- global_mobility %>%  # u.s. mobility data
+us_mobility <- community_mobility %>%  # u.s. mobility data
   filter(
     country_region_code == "US"
   ) %>%
@@ -752,7 +924,7 @@ us_mobility_pivot %>%
 
 <br>
 
-## Individual States
+### Individual States
 
 <br>
 
