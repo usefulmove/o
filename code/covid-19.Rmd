@@ -5,7 +5,7 @@ output:
     css: custom.css
 ---
 
-`r format(Sys.time(), '%B %d, %Y')`
+`r format(Sys.time(), '%d %b %Y')`
 
 ![](./covid.png)
 
@@ -57,7 +57,7 @@ The COVID-19 data in the New York Times GitHub repository is structured as three
 
 The risk assessment methodology used in this analysis has not been validated and is subject to noise in the data. There is a phenomenon that has been reported in the White House press briefings about the COVID-19 response whereby some counties report updates to the county data on Mondays for the incremental changes over the weekend. In fact, cyclical weekly variation can be seen in the reported case and death data. This limits the accuracy of the model to some extent. To enable more robustness to this variation in the estimation of risk, data over a several-day period is used as a compromise between speed of detection of a significant change in the risk estimate and estimation error due to high sensitivity to noise in the data.
 
-The predictive analytics model is built with the open-source [R programming language](https://en.wikipedia.org/wiki/R_(programming_language) using the [Tidyverse](https://www.tidyverse.org/) family of packages.
+The predictive analytics model is built with the open-source [R programming language](https://en.wikipedia.org/wiki/R_(programming_language)) using the [Tidyverse](https://www.tidyverse.org/) family of packages.
  
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(
@@ -190,31 +190,33 @@ covid <- function(state_name = "United States") {
   scale_d <- 7
 
   p <- ggplot(data = s, mapping = aes(x = date)) +
-    geom_smooth(aes(y = ndeaths * scale_d),
+    geom_smooth(
+      aes(y = ndeaths * scale_d),
       se = FALSE,
-      color = "#868686", fill = "grey85",
+      color = prim_color,
       method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
       na.rm = TRUE
     ) +
-    geom_smooth(aes(y = ncases),
+    geom_smooth(
+      aes(y = ncases),
       se = FALSE,
-      color = "#868686", fill = "grey85",
+      color = sec_color,
       method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
       na.rm = TRUE
     ) +
-    geom_point(aes(y = ndeaths * scale_d, fill = sec_color),
-      shape = 21, color = "black",
+    geom_point(
+      aes(y = ndeaths * scale_d, color = sec_color),  # unclear why color reversal is required
       size = 1.5, na.rm = TRUE, alpha = 0.8
     ) +
-    geom_point(aes(y = ncases, fill = prim_color),
-      shape = 21, color = "black",
+    geom_point(
+      aes(y = ncases, color = prim_color),  # unclear why color reversal is required
       size = 1.5, na.rm = TRUE, alpha = 0.8
     ) +
     labs(
       title = state_name,
       x = "",
       y = "cases (change)",
-      fill = "",
+      color = "",
       caption = chart_caption
     ) +
     scale_y_continuous(
@@ -231,13 +233,16 @@ covid <- function(state_name = "United States") {
                            ),
                     ylim = c(0, max(s$ncases))
     ) +
-    scale_fill_manual(
+    scale_color_manual(
       labels = c("deaths", "cases"),
-      values = c(prim_color, sec_color)
+      values = c(prim_color, sec_color),
+      guide = FALSE
     ) +
     theme(
-      legend.position = "bottom",
-      text = element_text(size = 10)
+      #axis.text.y = element_text(color = sec_color),
+      axis.title.y = element_text(color = sec_color),
+      #axis.text.y.right = element_text(color = prim_color),
+      axis.title.y.right = element_text(color = prim_color)
     )
 
   p
@@ -263,31 +268,33 @@ covidc <- function(county_state) {
   scale_d <- 7
 
   p <- ggplot(data = c, mapping = aes(x = date)) +
-    geom_smooth(aes(y = ndeaths * scale_d),
+    geom_smooth(
+      aes(y = ndeaths * scale_d),
       se = FALSE,
-      color = "#868686", fill = "grey85",
+      color = prim_color,
       method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
       na.rm = TRUE
     ) +
-    geom_smooth(aes(y = ncases),
+    geom_smooth(
+      aes(y = ncases),
       se = FALSE,
-      color = "#868686", fill = "grey85",
+      color = sec_color,
       method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
       na.rm = TRUE
     ) +
-    geom_point(aes(y = ndeaths * scale_d, fill = sec_color),
-      shape = 21, color = "black",
+    geom_point(
+      aes(y = ndeaths * scale_d, color = sec_color),  # unclear why color reversal is required
       size = 1.5, na.rm = TRUE, alpha = 0.8
     ) +
-    geom_point(aes(y = ncases, fill = prim_color),
-      shape = 21, color = "black",
+    geom_point(
+      aes(y = ncases, color = prim_color),  # unclear why color reversal is required
       size = 1.5, na.rm = TRUE, alpha = 0.8
     ) +
     labs(
       title = str_glue("{county_name} County, {state_name}"),
       x = "",
       y = "cases (change)",
-      fill = ""
+      color = ""
     ) +
     scale_x_date(limits = as.Date(c("2020-03-01",
                                     Sys.Date()
@@ -309,15 +316,18 @@ covidc <- function(county_state) {
                            ),
                     ylim = c(0, max(c$ncases))
     ) +
-    scale_fill_manual(
+    scale_color_manual(
       labels = c("deaths", "cases"),
-      values = c(prim_color, sec_color)
+      values = c(prim_color, sec_color),
+      guide = FALSE
     ) +
     theme(
-      legend.position = "bottom",
-      text = element_text(size = 10)
+      #axis.text.y = element_text(color = sec_color),
+      axis.title.y = element_text(color = sec_color),
+      #axis.text.y.right = element_text(color = prim_color),
+      axis.title.y.right = element_text(color = prim_color)
     )
-
+    
   p
 }
 
@@ -338,14 +348,12 @@ covid_total <- function(state_name = "United States") {
     geom_area(
       aes(y = cases, fill = prim_color),
       na.rm = TRUE,
-      alpha = 0.8,
-      color = "black"
+      alpha = 0.8
     ) +
     geom_area(
       aes(y = deaths * scale_d, fill = sec_color),
       na.rm = TRUE,
-      alpha = 1.0,
-      color = "black"
+      alpha = 0.9
     ) +
     labs(
       title = state_name,
@@ -370,13 +378,16 @@ covid_total <- function(state_name = "United States") {
     ) +
     scale_fill_manual(
       labels = c("deaths", "cases"),
-      values = c(prim_color, sec_color)
+      values = c(prim_color, sec_color),
+      guide = FALSE
     ) +
     theme(
-      legend.position = "bottom",
-      text = element_text(size = 10)
+      #axis.text.y = element_text(color = sec_color),
+      axis.title.y = element_text(color = sec_color),
+      #axis.text.y.right = element_text(color = prim_color),
+      axis.title.y.right = element_text(color = prim_color)
     )
-
+    
   p
 }
 
@@ -394,14 +405,12 @@ covidc_total <- function(county_state) {
    geom_area(
       aes(y = cases, fill = prim_color),
       na.rm = TRUE,
-      alpha = 0.8,
-      color = "black"
+      alpha = 0.8
     ) +
     geom_area(
       aes(y = deaths * scale_d, fill = sec_color),
       na.rm = TRUE,
-      alpha = 1.0,
-      color = "black"
+      alpha = 0.9
     ) +
     labs(
       title = str_glue("{county_name} County, {state_name}"),
@@ -431,13 +440,16 @@ covidc_total <- function(county_state) {
     ) +
     scale_fill_manual(
       labels = c("deaths", "cases"),
-      values = c(prim_color, sec_color)
+      values = c(prim_color, sec_color),
+      guide = FALSE
     ) +
     theme(
-      legend.position = "bottom",
-      text = element_text(size = 10)
+      #axis.text.y = element_text(color = sec_color),
+      axis.title.y = element_text(color = sec_color),
+      #axis.text.y.right = element_text(color = prim_color),
+      axis.title.y.right = element_text(color = prim_color)
     )
-
+    
   p
 }
 
@@ -558,8 +570,14 @@ p_us
 
 <br><br>
 
-```{r us_eu}
-eu_color <- "dimgrey"
+### Comparison with the EU
+
+The aggregated data from Johns Hopkins University CSSE was used to calculate a combined case rate for the 27 member states of the European Union (EU). The combined data were used to compare the pandemic response in the EU with the response in the U.S. over time. The rise in infections in the EU preceded the rise in the U.S. For time comparison, the 2500th case recorded in the EU occurred on 02 Mar 2020. The 2500th case in the U.S. was recorded on 14 Mar 2020. This comparison is minimally useful, however, because the populations of the two regions differ (U.S. - 328,239,523; EU - 447,206,135) and there are a number of other factors (e.g., population density, health care systems, prevalence of comorbidities) that are not consistent between the two.
+
+<br>
+
+```{r us_eu_comparison}
+eu_color <- "#808080"
 
 us %>% 
   ggplot(mapping = aes(x = date)) +
@@ -568,7 +586,7 @@ us %>%
       data = eu_combined_cases,
       aes(date, ncases),
       se = FALSE,
-      color = eu_color, fill = "grey85",
+      color = eu_color,
       method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
       size = 1.0,
       na.rm = TRUE,
@@ -576,7 +594,7 @@ us %>%
     ) +
     geom_point(
       data = eu_combined_cases,
-      aes(date, ncases, fill = eu_color),
+      aes(date, ncases),
       color = eu_color,
       size = 1.3, na.rm = TRUE, alpha = 0.8,
       show.legend = FALSE
@@ -593,14 +611,14 @@ us %>%
     geom_smooth(
       aes(y = ncases),
       se = FALSE,
-      color = sec_color, fill = "grey85",
+      color = sec_color,
       method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
       size = 1.2,
       na.rm = TRUE,
       show.legend = FALSE
     ) +
     geom_point(
-      aes(y = ncases, fill = prim_color),
+      aes(y = ncases, color = sec_color),
       color = sec_color,
       size = 1.5, na.rm = TRUE, alpha = 0.8,
       show.legend = FALSE
@@ -617,8 +635,8 @@ us %>%
       title = "COVID-19 Case Rates:  United States and European Union",
       x = "",
       y = "cases (change)",
-      fill = "",
-      caption = "(data from nytimes and johns hopkins univ.)"
+      color = "",
+      caption = "(data from nytimes and johns hopkins)"
     ) +
     scale_y_continuous(
       labels = scales::comma
@@ -643,18 +661,19 @@ us %>%
 ```{r state_estimates}
 alarm <- 25
 state_df %>%
-  ggplot(aes(x = reorder(state, risk_estimate), y = risk_estimate)) +
+  ggplot(
+    aes(x = reorder(state, risk_estimate), y = risk_estimate)) +
     geom_hline(yintercept = alarm,
                size = 0.5,
                color = "darkgrey",
                linetype = "dashed"
     ) +
-    geom_bar(aes(fill = risk_estimate >= alarm),
+    geom_bar(
+      aes(fill = risk_estimate >= alarm),
       stat = "identity",
-      width = 0.5,
+      width = 0.8,
       alpha = 0.8,
-      show.legend = FALSE,
-      color = "black"
+      show.legend = FALSE
     ) +
     coord_flip() +
     labs(
@@ -700,11 +719,11 @@ palette_len <- ifelse(n_states > base_palette_len, n_states, base_palette_len)
 county_table %>%
   mutate(county = fct_reorder(county, risk_estimate)) %>%
   ggplot(aes(x = order, y = risk_estimate)) +
-    geom_bar(aes(fill = fct_reorder2(state, county, risk_estimate)),
+    geom_bar(
+      aes(fill = fct_reorder2(state, county, risk_estimate)),
       stat = "identity",
-      width = 0.65,
-      alpha = 0.8,
-      color = "black"
+      width = 0.8,
+      alpha = 0.8
     ) +
     scale_x_discrete(labels = rev(county_table$county)) +
     scale_fill_manual(values = get_palette(palette_len)) +
@@ -742,13 +761,12 @@ us %>%
   ggplot(aes(day, mean_ndeaths)) +
     geom_col(
       fill = sec_color,
-      color = "black",
       alpha = 0.8
     ) +
     labs(
       title = "Average Number of Reported Deaths by Day of the Week",
       x = "day of week reported",
-      y = "mean"
+      y = "mean of reported deaths"
     ) +
     scale_y_continuous(labels = scales::comma)
 
@@ -777,7 +795,7 @@ community_mobility <- community_mobility %>%
 
 ```
 
-The data used for the analysis below is current through `r format(max(community_mobility$date), '%B %d, %Y')`.
+The data used for the analysis below is current through `r format(max(community_mobility$date), '%d %b %Y')`.
 
 <br>
 
@@ -916,7 +934,7 @@ us_mobility_pivot %>%
 
 ```
 
-**Note:**  The dotted grey line on each of the mobility charts represents the March 13, 2020 date on which the U.S. declared a [National Emergency Concerning the Novel Coronavirus Disease (COVID-19) Outbreak](https://www.whitehouse.gov/presidential-actions/proclamation-declaring-national-emergency-concerning-novel-coronavirus-disease-covid-19-outbreak/).
+**Note:**  The dotted grey line on each of the mobility charts represents the 13 Mar 2020 date on which the U.S. declared a [National Emergency Concerning the Novel Coronavirus Disease (COVID-19) Outbreak](https://www.whitehouse.gov/presidential-actions/proclamation-declaring-national-emergency-concerning-novel-coronavirus-disease-covid-19-outbreak/).
 
 <br>
 
