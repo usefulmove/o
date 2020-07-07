@@ -696,12 +696,14 @@ p3 <- covid("Texas")
 p4 <- covid("Arizona")
 p5 <- covid("Georgia")
 p6 <- covid("South Carolina")
+p7 <- covid("Tennessee")
+p8 <- covid("New York")
 ```
 
 <br><br>
 
 ```{r disp_state_charts, fig.asp=1.8}
-grid.arrange(p1, p2, p3, p4, p5, p6, nrow = 3)
+grid.arrange(p1, p2, p3, p4, p5, p6, p7, p8, nrow = 4)
 ```
 
 <br>
