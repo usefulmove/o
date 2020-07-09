@@ -1,5 +1,6 @@
 ---
 title: "COVID-19 Risk Modeling"
+author: "Duane Edmonds"
 output:
   html_document:
     css: custom.css
@@ -174,11 +175,9 @@ get_county <- function(county_name, state_name) {
 covid <- function(state_name = "United States") {
   if (state_name == "United States") {
     s <- us
-    chart_caption <- "(data from nytimes)"
   }
   else {
     s <- get_state(state_name)
-    chart_caption <- ""
   }
 
   # output stats
@@ -219,8 +218,7 @@ covid <- function(state_name = "United States") {
       title = state_name,
       x = "",
       y = "cases (change)",
-      color = "",
-      caption = chart_caption
+      color = ""
     ) +
     scale_y_continuous(
       labels = scales::comma,
@@ -337,11 +335,9 @@ covidc <- function(county_state) {
 covid_total <- function(state_name = "United States") {
   if (state_name == "United States") {
     s <- us
-    chart_caption <- "(data from nytimes)"
   }
   else {
     s <- get_state(state_name)
-    chart_caption <- ""
   }
 
   # display new cases and new deaths
@@ -362,8 +358,7 @@ covid_total <- function(state_name = "United States") {
       title = state_name,
       x = "",
       y = "cases",
-      fill = "",
-      caption = chart_caption
+      fill = ""
     ) +
     scale_y_continuous(
       labels = scales::comma,
@@ -638,8 +633,7 @@ us %>%
       title = "COVID-19 Case Rates:  United States and European Union",
       x = "",
       y = "cases (change)",
-      color = "",
-      caption = "(data from nytimes and johns hopkins)"
+      color = ""
     ) +
     scale_y_continuous(
       labels = scales::comma
@@ -683,8 +677,7 @@ state_df %>%
       title = "States with Highest Estimated Risk",
       x = "",
       y = expression(rho),
-      fill = "",
-      caption = "(d.edmonds)"
+      fill = ""
     ) +
     scale_fill_manual(values = c(sec_color, prim_color))
 ```
@@ -694,16 +687,14 @@ p1 <- covid("Florida")
 p2 <- covid("California")
 p3 <- covid("Texas")
 p4 <- covid("Arizona")
-p5 <- covid("Georgia")
-p6 <- covid("South Carolina")
-p7 <- covid("Tennessee")
-p8 <- covid("New York")
+p5 <- covid("Louisiana")
+p6 <- covid("New York")
 ```
 
 <br><br>
 
-```{r disp_state_charts, fig.asp=1.8}
-grid.arrange(p1, p2, p3, p4, p5, p6, p7, p8, nrow = 4)
+```{r disp_state_charts, fig.asp=1.3}
+grid.arrange(p1, p2, p3, p4, p5, p6, nrow = 3)
 ```
 
 <br>
@@ -736,8 +727,7 @@ county_table %>%
       title = "Counties with Highest Estimated Risk",
       x = "",
       y = expression(rho),
-      fill = "state",
-      caption = "(d.edmonds)"
+      fill = "state"
     ) +
     coord_flip()
 ```
