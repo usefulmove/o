@@ -11,8 +11,7 @@ output:
 ![](./covid.png)
 
 <style>
-body {
-text-align: justify}
+body {text-align: justify}
 </style>
 
 <br>
@@ -537,7 +536,7 @@ county_table <- county_risk_estimates %>% # highest risk estimates
   )
 ```
 
-<br>
+<br><br>
 
 ---
 
@@ -666,7 +665,7 @@ state_df %>%
                linetype = "dashed"
     ) +
     geom_bar(
-      aes(fill = risk_estimate >= alarm),
+      aes(fill = risk_estimate < alarm),
       stat = "identity",
       width = 0.8,
       alpha = 0.8,
@@ -679,7 +678,7 @@ state_df %>%
       y = expression(rho),
       fill = ""
     ) +
-    scale_fill_manual(values = c(sec_color, prim_color))
+    scale_fill_manual(values = c(prim_color, sec_color))
 ```
 
 ```{r state_charts, include = FALSE}
@@ -688,7 +687,7 @@ p2 <- covid("California")
 p3 <- covid("Texas")
 p4 <- covid("Arizona")
 p5 <- covid("Louisiana")
-p6 <- covid("New York")
+p6 <- covid("Georgia")
 ```
 
 <br><br>
@@ -732,42 +731,7 @@ county_table %>%
     coord_flip()
 ```
 
-<br>
-
----
-
-<br>
-
-### Data Abnormalities
-
-Analysis of the reported death data in the U.S. reveals a repeating weekly pattern in which the updates on Sunday and Monday are consistently lower than those reported on the other days of the week. As mentioned in the data analysis description in the Background section, the risk estimation algorithm has been configured to reduce the effect of this variation on the statistical model.
-
-<br>
-
-```{r day_of_week, out.width = "65%"}
-us %>% 
-  mutate(day = wday(date, label = TRUE)) %>% 
-  group_by(day) %>% 
-  summarise(
-    mean_ncases = mean(ncases),
-    mean_ndeaths = mean(ndeaths),
-    .groups = "drop"
-  ) %>% 
-  ggplot(aes(day, mean_ndeaths)) +
-    geom_col(
-      fill = sec_color,
-      alpha = 0.8
-    ) +
-    labs(
-      title = "Average Number of Reported Deaths by Day of the Week",
-      x = "day of week reported",
-      y = "mean of reported deaths"
-    ) +
-    scale_y_continuous(labels = scales::comma)
-
-```
-
-<br><br>
+<br><br><br>
 
 ---
 
@@ -999,6 +963,41 @@ us_mobility_pivot %>%
       color = "state"
     ) +
     scale_color_jco()
+
+```
+
+<br><br><br>
+
+---
+
+<br>
+
+### Data Abnormalities
+
+Analysis of the New York Times United States reported death data reveals a repeating weekly pattern in which the updates on Sunday and Monday are consistently lower than those reported on the other days of the week. As mentioned in the data analysis description in the Background section, the risk estimation algorithm has been configured to reduce the effect of this variation on the statistical model.
+
+<br>
+
+```{r day_of_week, out.width = "65%"}
+us %>% 
+  mutate(day = wday(date, label = TRUE)) %>% 
+  group_by(day) %>% 
+  summarise(
+    mean_ncases = mean(ncases),
+    mean_ndeaths = mean(ndeaths),
+    .groups = "drop"
+  ) %>% 
+  ggplot(aes(day, mean_ndeaths)) +
+    geom_col(
+      fill = sec_color,
+      alpha = 0.8
+    ) +
+    labs(
+      title = "Average Number of Reported Deaths by Day of the Week",
+      x = "day of week reported",
+      y = "mean of reported deaths"
+    ) +
+    scale_y_continuous(labels = scales::comma)
 
 ```
 
