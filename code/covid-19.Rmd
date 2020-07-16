@@ -6,7 +6,7 @@ output:
     css: custom.css
 ---
 
-`r format(Sys.time(), '%d %B %Y')`
+`r format(Sys.time(), '%B %d, %Y')`
 
 ![](./covid.png)
 
@@ -455,7 +455,7 @@ calculate_risk_estimate_state <- function(state_name) {
   s <- get_state(state_name)
 
   # data to be used for fitting linear regression model
-  reg_data <- top_n(s, 10, date)
+  reg_data <- top_n(s, 12, date)
 
   # linear regression model
   reg_model <- lsfit(reg_data$date, reg_data$ncases)
@@ -469,7 +469,7 @@ calculate_risk_estimate_county <- function(county_name, state_name) {
 
   if (nrow(c) > 20) {
     # data to be used for fitting linear regression model
-    reg_data <- top_n(c, 10, date)
+    reg_data <- top_n(c, 12, date)
 
     # linear regression model
     reg_model <- lsfit(reg_data$date, reg_data$ncases)
@@ -506,9 +506,12 @@ state_risk_estimates <- state_risk_estimates %>% # add current risk estimates fo
                      )
   )
 
+state_alarm <- 25
+count_alarm_states <- sum(state_risk_estimates$risk_estimate >= state_alarm)
+  
 state_df <- state_risk_estimates %>% # highest risk estimates
   filter(risk_estimate > 5) %>%
-  top_n(15, risk_estimate)
+  top_n(max(c(count_alarm_states, 15)), risk_estimate)
 ```
 
 ```{r counties, include = FALSE}
@@ -552,7 +555,7 @@ total_us_deaths <- us_live$deaths[nrow(us_live)]
 current_us_ndeaths <- us$ndeaths[nrow(us)]
 ```
 
-There have been `r format( total_us_cases, big.mark="," )` total COVID-19 cases (`r format( current_us_ncases, big.mark="," )` new cases per day) and `r format( total_us_deaths, big.mark="," )` deaths (`r format( current_us_ndeaths, big.mark="," )` new deaths per day) in the United States from `r format(min(us$date), '%d %B %Y')` to `r format(max(us$date), '%d %B %Y')`.
+There have been `r format( total_us_cases, big.mark="," )` total COVID-19 cases (`r format( current_us_ncases, big.mark="," )` new cases per day) and `r format( total_us_deaths, big.mark="," )` deaths (`r format( current_us_ndeaths, big.mark="," )` new deaths per day) in the United States from `r format(min(us$date), '%B %d, %Y')` to `r format(max(us$date), '%B %d, %Y')`.
 
 <br><br>
 
@@ -570,7 +573,7 @@ p_us
 
 ### Comparison with the EU
 
-The aggregated data from Johns Hopkins University CSSE was used to calculate a combined case rate for the 27 member states of the European Union (EU). The combined data were used to compare the pandemic response in the EU with the response in the U.S. over time. The rise in infections in the EU preceded the rise in the U.S. For time comparison, the 2500th case recorded in the EU occurred on 02 March 2020. The 2500th case in the U.S. was recorded on 14 March 2020. This comparison is minimally useful, however, because the populations of the two regions differ (U.S. - 328,239,523; EU - 447,206,135) and there are a number of other factors (e.g., population density, health care systems, prevalence of comorbidities) that are not consistent between the two.
+The aggregated data from Johns Hopkins University CSSE was used to calculate a combined case rate for the 27 member states of the European Union (EU). The combined data were used to compare the pandemic response in the EU with the response in the U.S. over time. The rise in infections in the EU preceded the rise in the U.S. For time comparison, the 2500th case recorded in the EU occurred on March 2, 2020. The 2500th case in the U.S. was recorded on March 14, 2020. This comparison is minimally useful, however, because the populations of the two regions differ (U.S. - 328,239,523; EU - 447,206,135) and there are a number of other factors (e.g., population density, health care systems, prevalence of comorbidities) that are not consistent between the two.
 
 <br>
 
@@ -655,18 +658,19 @@ us %>%
 
 ### Individual States
 
+A total of `r count_alarm_states` states currently have risk estimates above 25.
+
 ```{r state_estimates}
-alarm <- 25
 state_df %>%
   ggplot(
     aes(x = reorder(state, risk_estimate), y = risk_estimate)) +
-    geom_hline(yintercept = alarm,
+    geom_hline(yintercept = state_alarm,
                size = 0.5,
                color = "darkgrey",
                linetype = "dashed"
     ) +
     geom_bar(
-      aes(fill = risk_estimate < alarm),
+      aes(fill = risk_estimate < state_alarm),
       stat = "identity",
       width = 0.8,
       alpha = 0.8,
@@ -756,7 +760,7 @@ community_mobility <- community_mobility %>%
 
 ```
 
-The data used for the analysis below is current through `r format(max(community_mobility$date), '%d %B %Y')`.
+The data used for the analysis below is current through `r format(max(community_mobility$date), '%B %d, %Y')`.
 
 <br>
 
@@ -902,7 +906,7 @@ us_mobility_pivot %>%
 
 ```
 
-**Note:**  The dotted grey line on each of the mobility charts represents the date (13 March 2020) on which the U.S. declared a [National Emergency Concerning the Novel Coronavirus Disease (COVID-19) Outbreak](https://www.whitehouse.gov/presidential-actions/proclamation-declaring-national-emergency-concerning-novel-coronavirus-disease-covid-19-outbreak/).
+**Note:**  The dotted grey line on each of the mobility charts represents the date (March 13, 2020) on which the U.S. declared a [National Emergency Concerning the Novel Coronavirus Disease (COVID-19) Outbreak](https://www.whitehouse.gov/presidential-actions/proclamation-declaring-national-emergency-concerning-novel-coronavirus-disease-covid-19-outbreak/).
 
 <br>
 
