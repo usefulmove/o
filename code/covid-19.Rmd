@@ -531,7 +531,7 @@ county_risk_estimates <- county_risk_estimates %>% # add current risk estimates
 
 county_table <- county_risk_estimates %>% # highest risk estimates
   filter(risk_estimate > 5) %>%
-  top_n(15, risk_estimate) %>%
+  top_n(16, risk_estimate) %>%
   arrange(desc(risk_estimate)) %>%
   mutate(
     order = as.factor(row_number(risk_estimate)),
@@ -573,7 +573,7 @@ p_us
 
 ### Comparison with the EU
 
-The aggregated data from Johns Hopkins University CSSE was used to calculate a combined case rate for the 27 member states of the European Union (EU). The combined data were used to compare the pandemic response in the EU with the response in the U.S. over time. The rise in infections in the EU preceded the rise in the U.S. For time comparison, the 2500th case recorded in the EU occurred on March 2, 2020. The 2500th case in the U.S. was recorded on March 14, 2020. This comparison is minimally useful, however, because the populations of the two regions differ (U.S. - 328,239,523; EU - 447,206,135) and there are a number of other factors (e.g., population density, health care systems, prevalence of comorbidities) that are not consistent between the two.
+The aggregated data from Johns Hopkins University CSSE was used to calculate a combined case rate for the 27 member states of the European Union (EU). The combined data were used to compare the pandemic response in the EU with the response in the U.S. over time. The rise in infections in the EU preceded the rise in the U.S. For time comparison, the 2,500th case recorded in the EU occurred on March 2, 2020. The 2,500th case in the U.S. was recorded on March 14, 2020. This comparison is minimally useful, however, because the populations of the two regions differ (U.S. - 328,239,523; EU - 447,206,135) and there are a number of other factors (e.g., population density, health care systems, prevalence of comorbidities) that are not consistent between the two.
 
 <br>
 
@@ -693,12 +693,14 @@ p3 <- covid("Texas")
 p4 <- covid("Arizona")
 p5 <- covid("Louisiana")
 p6 <- covid("Georgia")
+p7 <- covid("Alabama")
+p8 <- covid("New York")
 ```
 
 <br><br>
 
-```{r disp_state_charts, fig.asp=1.3}
-grid.arrange(p1, p2, p3, p4, p5, p6, nrow = 3)
+```{r disp_state_charts, fig.asp=1.7}
+grid.arrange(p1, p2, p3, p4, p5, p6, p7, p8, nrow = 4)
 ```
 
 <br>
