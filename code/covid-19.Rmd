@@ -55,9 +55,9 @@ The New York Times has also provided public human coronavirus disease case and d
 
 ## Data Analysis
 
-The COVID-19 data in the New York Times GitHub repository is structured as three main comma-separated value data files---one top-level country summary file, one state-level summary file, and one data file containing reported case and death data for each individual U.S. county. Each of these is used for this analysis. The data from each of these files is used to calculate the rate of reported new cases and deaths for each state and county, and these rates are used to create a predictive regression model for each locale. A risk estimate (ρ) is generated from these models, and the states and counties with the highest estimated risk are compared in the charts shown in this document. In the charts showing new reported cases and deaths, a generalized additive model (GAM) smoothing function was fit to each data set.
+The COVID-19 data from both the John Hopkins and New York Times repositories are pulled and used to calculate the rate of new reported cases for each country and the rates of new reported cases and deaths for each U.S. state and county. These rates are used to generate a predictive regression model for each locale. A risk prediction (ρ) is generated from these models, and the countries, states, and counties with the highest predicted risk are compared in the charts in this document. In the U.S. case-death charts, a generalized additive model (GAM) smoothing function is fit to each data set to make it easier to visualize trends.
 
-The risk assessment methodology used in this analysis has not been validated and is subject to noise in the data. There is a phenomenon that has been reported in the White House press briefings about the COVID-19 response whereby some counties report updates to the county data on Mondays for the incremental changes over the weekend. In fact, cyclical weekly variation can be seen in the reported case and death data. This limits the accuracy of the model to some extent. To enable more robustness to this variation in the estimation of risk, data over a several-day period is used as a compromise between speed of detection of a significant change in the risk estimate and estimation error due to high sensitivity to noise in the data.
+The risk assessment methodology used in this analysis has not been fully validated and is affected by noise in the data. There is a phenomenon that has been reported in White House press briefings in which some counties report updates on Mondays for the incremental changes over the weekend. Cyclical weekly variation can be observed in the data. This limits the accuracy of the model predictions. To increase prediction robustness, the model has been tuned to use data over a multi-day period as a compromise between the speed of the detection of a relevant changes in risk predictions and prediction error caused by sensitivity to noise.
 
 The predictive analytics model is built with the open-source [R programming language](https://en.wikipedia.org/wiki/R_(programming_language)) using the [Tidyverse](https://www.tidyverse.org/) family of packages.
  
@@ -141,9 +141,21 @@ states <- read_csv(str_glue("{data_path}us-states.csv"))
 counties <- read_csv(str_glue("{data_path}us-counties.csv"))
 ```
 
-```{r functions, include = FALSE}
+```{r utensils, include = FALSE}
 
 # data analysis functions
+
+get_country <- function(country_name) {
+  c <- global_cases %>%
+    filter(country == country_name)  # country object
+
+  c <- c %>%
+    mutate(
+      ncases = cases - lag(cases, default = cases[1])
+    )
+
+  c
+}
 
 get_state <- function(state_name) {
   s <- states[states$state == state_name, ] # state object
@@ -157,9 +169,9 @@ get_state <- function(state_name) {
   s
 }
 
-get_county <- function(county_name, state_name) {
+get_cnty <- function(cnty_name, state_name) {
   c <- counties %>%
-    filter(county == county_name, state == state_name) # county object
+    filter(county == cnty_name, state == state_name) # county object
 
   if (nrow(c) > 1) {
     c <- c %>%
@@ -215,7 +227,7 @@ covid <- function(state_name = "United States") {
       size = 1.5, na.rm = TRUE, alpha = 0.8
     ) +
     labs(
-      title = state_name,
+      subtitle = state_name,
       x = "",
       y = "cases (change)",
       color = ""
@@ -250,14 +262,14 @@ covid <- function(state_name = "United States") {
 }
 
 covidc <- function(county_state) {
-  county_name <- str_trim(str_split_fixed(county_state, ",", n = 2)[1])
+  cnty_name <- str_trim(str_split_fixed(county_state, ",", n = 2)[1])
   state_name <- str_trim(str_split_fixed(county_state, ",", n = 2)[2])
 
 
-  c <- get_county(county_name, state_name)
+  c <- get_cnty(cnty_name, state_name)
 
   # output stats
-  print(str_glue("{county_name} County, {state_name} has ",
+  print(str_glue("{cnty_name} County, {state_name} has ",
                  "{format(c$cases[nrow(c)], big.mark = ',')} cases ",
                  "({format(c$ncases[nrow(c)], big.mark = ',')} cases per day) and ",
                  "{format(c$deaths[nrow(c)], big.mark = ',')} deaths ",
@@ -292,7 +304,7 @@ covidc <- function(county_state) {
       size = 1.5, na.rm = TRUE, alpha = 0.8
     ) +
     labs(
-      title = str_glue("{county_name} County, {state_name}"),
+      subtitle = str_glue("{cnty_name} County, {state_name}"),
       x = "",
       y = "cases (change)",
       color = ""
@@ -355,7 +367,7 @@ covid_total <- function(state_name = "United States") {
       alpha = 0.9
     ) +
     labs(
-      title = state_name,
+      subtitle = state_name,
       x = "",
       y = "cases",
       fill = ""
@@ -390,11 +402,11 @@ covid_total <- function(state_name = "United States") {
 }
 
 covidc_total <- function(county_state) {
-  county_name <- str_trim(str_split_fixed(county_state, ",", n = 2)[1])
+  cnty_name <- str_trim(str_split_fixed(county_state, ",", n = 2)[1])
   state_name <- str_trim(str_split_fixed(county_state, ",", n = 2)[2])
 
 
-  c <- get_county(county_name, state_name)
+  c <- get_cnty(cnty_name, state_name)
 
   # display new cases and new deaths
   scale_d <- 7
@@ -411,7 +423,7 @@ covidc_total <- function(county_state) {
       alpha = 0.9
     ) +
     labs(
-      title = str_glue("{county_name} County, {state_name}"),
+      subtitle = str_glue("{cnty_name} County, {state_name}"),
       x = "",
       y = "cases",
       fill = ""
@@ -451,7 +463,20 @@ covidc_total <- function(county_state) {
   p
 }
 
-calculate_risk_estimate_state <- function(state_name) {
+calculate_risk_prediction_country <- function(country_name) {
+  c <- get_country(country_name)
+
+  # data to be used for fitting linear regression model
+  reg_data <- top_n(c, 12, date)
+
+  # linear regression model
+  reg_model <- lsfit(reg_data$date, reg_data$ncases)
+
+  return(reg_model$coefficients["X"]) # return slope of ncases rate
+}
+calculate_risk_prediction_country_c <- compiler::cmpfun(calculate_risk_prediction_country)
+
+calculate_risk_prediction_state <- function(state_name) {
   s <- get_state(state_name)
 
   # data to be used for fitting linear regression model
@@ -462,10 +487,10 @@ calculate_risk_estimate_state <- function(state_name) {
 
   return(reg_model$coefficients["X"]) # return slope of ncases rate
 }
-calculate_risk_estimate_state_c <- compiler::cmpfun(calculate_risk_estimate_state)
+calculate_risk_prediction_state_c <- compiler::cmpfun(calculate_risk_prediction_state)
 
-calculate_risk_estimate_county <- function(county_name, state_name) {
-  c <- get_county(county_name, state_name) # county object
+calculate_risk_prediction_cnty <- function(cnty_name, state_name) {
+  c <- get_cnty(cnty_name, state_name) # county object
 
   if (nrow(c) > 20) {
     # data to be used for fitting linear regression model
@@ -479,9 +504,43 @@ calculate_risk_estimate_county <- function(county_name, state_name) {
 
   return(0)
 }
-calculate_risk_estimate_county_c <- compiler::cmpfun(calculate_risk_estimate_county)
+calculate_risk_prediction_cnty_c <- compiler::cmpfun(calculate_risk_prediction_cnty)
 ```
 
+```{r global, include = FALSE}
+# global analysis
+
+country_risk_predictions <- global_cases %>% distinct(country)
+country_risk_predictions <- country_risk_predictions %>%  # calculate risk prediction for each country
+  mutate(
+    risk_prediction = map_dbl(country_risk_predictions$country,
+                            ~ calculate_risk_prediction_country_c(.)
+                            )
+  )
+  
+gdp <- readr::read_csv("../library/gdp-ppp-per-capita.csv")  # per capita GDP (PPP) in international dollars
+
+gdp <- gdp %>%  # match country names where different prior to join
+  mutate(country = recode(country,
+                          "Bahamas, The" = "Bahamas",
+                          "People's Republic of China" = "China",
+                          "United States" = "US",
+                          "Cape Verde" = "Cabo Verde",
+                          "Congo, Democratic Republic of the" = "Congo (Brazzaville)",
+                          "Congo, Republic of the" = "Congo (Kinshasa)",
+                          "Côte d'Ivoire" = "Cote d'Ivoire",
+                          "Czech Republic" = "Czechia",
+                          "Gambia, The" = "Gambia",
+                          "Taiwan" = "Taiwan*",
+                          "Myanmar" = "Burma",
+                          "São Tomé and Príncipe" = "Sao Tome and Principe"
+                          )
+  )
+
+country_risk_gdp <- country_risk_predictions %>% 
+  left_join(gdp, by = "country") %>% 
+  filter(!is.na(gdp_ppp_pcap))
+```
 ```{r country, include = FALSE}
 # u.s. analysis
 
@@ -496,45 +555,47 @@ p_us <- covid()
 ```
 
 ```{r states, include = FALSE}
-# state analysis
+# state analysis (u.s.)
 
-# calculate state risk estimates
-state_risk_estimates <- states %>% distinct(state)
-state_risk_estimates <- state_risk_estimates %>% # add current risk estimates for all states
-  mutate(risk_estimate = map_dbl(state_risk_estimates$state,
-                             ~ calculate_risk_estimate_state_c(.)
-                     )
+# calculate state risk predictions
+state_risk_predictions <- states %>% distinct(state)
+state_risk_predictions <- state_risk_predictions %>% # calculate risk prediction for each state
+  mutate(
+    risk_prediction = map_dbl(state_risk_predictions$state,
+                            ~ calculate_risk_prediction_state_c(.)
+                            )
   )
 
 state_alarm <- 25
-count_alarm_states <- sum(state_risk_estimates$risk_estimate >= state_alarm)
+count_alarm_states <- sum(state_risk_predictions$risk_prediction >= state_alarm)
   
-state_df <- state_risk_estimates %>% # highest risk estimates
-  filter(risk_estimate > 5) %>%
-  top_n(max(c(count_alarm_states, 15)), risk_estimate)
+state_df <- state_risk_predictions %>% # highest risk predictions
+  filter(risk_prediction > 5) %>%
+  top_n(max(c(count_alarm_states, 15)), risk_prediction)
 ```
 
 ```{r counties, include = FALSE}
+# county analysis (u.s.)
 
-# calculate county risk estimates
-county_risk_estimates <- counties %>%
+# calculate county risk predictions
+cnty_risk_predictions <- counties %>%
   filter(county != "Unknown") %>%
   distinct(county, state) %>%
   mutate(state = as.character(state), county = as.character(county))
 
-county_risk_estimates <- county_risk_estimates %>% # add current risk estimates
-  mutate(risk_estimate = map2_dbl(county_risk_estimates$county,
-                              county_risk_estimates$state,
-                              ~ calculate_risk_estimate_county_c(.x, .y)
+cnty_risk_predictions <- cnty_risk_predictions %>% # add current risk predictions
+  mutate(risk_prediction = map2_dbl(cnty_risk_predictions$county,
+                              cnty_risk_predictions$state,
+                              ~ calculate_risk_prediction_cnty_c(.x, .y)
                      )
   )
 
-county_table <- county_risk_estimates %>% # highest risk estimates
-  filter(risk_estimate > 5) %>%
-  top_n(16, risk_estimate) %>%
-  arrange(desc(risk_estimate)) %>%
+cnty_table <- cnty_risk_predictions %>% # highest risk predictions
+  filter(risk_prediction > 5) %>%
+  top_n(16, risk_prediction) %>%
+  arrange(desc(risk_prediction)) %>%
   mutate(
-    order = as.factor(row_number(risk_estimate)),
+    order = as.factor(row_number(risk_prediction)),
     county = as.factor(county),
     state = as.factor(state)
   )
@@ -545,6 +606,63 @@ county_table <- county_risk_estimates %>% # highest risk estimates
 ---
 
 # Summary Results
+
+### World
+
+```{r world_risk, include = FALSE}
+country_risk_predictions %>% 
+  top_n(5, risk_prediction) %>% 
+  ggplot(aes(fct_reorder(country, desc(risk_prediction)), risk_prediction)) +
+    geom_col(
+      width = 0.8,
+      alpha = 0.8,
+      fill = sec_color
+    ) +
+    labs(
+      subtitle = "Countries with Highest Predicted Risk",
+      x = "",
+      y = expression(rho)
+    ) +
+    scale_y_continuous(labels = scales::comma)
+```
+
+```{r, world_risk_gdp, out.width = "85%"}
+country_risk_gdp %>% 
+  mutate(country = recode(country,
+                          "US" = "United States"
+                          )
+  ) %>% 
+  filter(risk_prediction > 25) %>% 
+  ggplot(aes(gdp_ppp_pcap, risk_prediction)) +
+    geom_point(
+      size = 2.5,
+      color = sec_color
+    ) +
+    #scale_x_continuous(trans = "log10")
+    ggrepel::geom_text_repel(aes(label = country)) +
+    labs(
+      subtitle = "Prediction of COVID-19 Risk vs Gross Domestic Product",
+      x = "per capita GDP",
+      y = expression(rho)
+    ) +
+    scale_x_continuous(labels = scales::dollar) +
+    scale_y_continuous(
+      trans = "log10",
+      labels = scales::comma
+    ) +
+    coord_cartesian(
+      ylim = c(10, NA)
+    )
+
+```
+
+There are `r nrow(country_risk_predictions)` countries represented in the Johns Hopkins University data set. The Gross Domestic Product (GDP) data shown above represents per capita GDP at purchasing power parity (PPP) in [international (Geary-Khamis) dollars](https://en.wikipedia.org/wiki/International_dollar). These data are obtained from the [Countries by GDP (PPP) per capita](https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(PPP)_per_capita) (Wikipedia) web page. Only countries with a risk prediction value over 25 are shown.
+
+<br><br>
+
+---
+
+<br>
 
 ### U.S.
 
@@ -559,13 +677,13 @@ There have been `r format( total_us_cases, big.mark="," )` total COVID-19 cases 
 
 <br><br>
 
-```{r country_chart_total}
+```{r country_chart_total, out.width = "80%"}
 p_us_total
 ```
 
 <br><br>
 
-```{r country_chart_change}
+```{r country_chart_change, out.width = "80%"}
 p_us
 ```
 
@@ -577,7 +695,7 @@ The aggregated data from Johns Hopkins University CSSE was used to calculate a c
 
 <br>
 
-```{r us_eu_comparison}
+```{r us_eu_comparison, out.width = "80%"}
 eu_color <- "#808080"
 
 us %>% 
@@ -633,7 +751,7 @@ us %>%
       size = 4.5
     ) +
     labs(
-      title = "COVID-19 Case Rates:  United States and European Union",
+      subtitle = "COVID-19 Case Rates:  United States and European Union",
       x = "",
       y = "cases (change)",
       color = ""
@@ -658,19 +776,19 @@ us %>%
 
 ### Individual States
 
-A total of `r count_alarm_states` states currently have risk estimates above 25.
+A total of `r count_alarm_states` states currently have risk predictions above 25.
 
-```{r state_estimates}
+```{r state_predictions}
 state_df %>%
   ggplot(
-    aes(x = reorder(state, risk_estimate), y = risk_estimate)) +
+    aes(x = reorder(state, risk_prediction), y = risk_prediction)) +
     geom_hline(yintercept = state_alarm,
                size = 0.5,
                color = "darkgrey",
                linetype = "dashed"
     ) +
     geom_bar(
-      aes(fill = risk_estimate < state_alarm),
+      aes(fill = risk_prediction < state_alarm),
       stat = "identity",
       width = 0.8,
       alpha = 0.8,
@@ -678,7 +796,7 @@ state_df %>%
     ) +
     coord_flip() +
     labs(
-      title = "States with Highest Estimated Risk",
+      subtitle = "States with Highest Predicted Risk",
       x = "",
       y = expression(rho),
       fill = ""
@@ -711,32 +829,34 @@ grid.arrange(p1, p2, p3, p4, p5, p6, p7, p8, nrow = 4)
 
 ### Counties
 
-```{r county_estimates}
+```{r county_predictions}
 base_palette_len <- 10
 get_palette <- colorRampPalette(pal_jco()(base_palette_len))
 
-n_states <- n_distinct(county_table$state)
+n_states <- n_distinct(cnty_table$state)
 palette_len <- ifelse(n_states > base_palette_len, n_states, base_palette_len)
 
-county_table %>%
-  mutate(county = fct_reorder(county, risk_estimate)) %>%
-  ggplot(aes(x = order, y = risk_estimate)) +
+cnty_table %>%
+  mutate(county = fct_reorder(county, risk_prediction)) %>%
+  ggplot(aes(x = order, y = risk_prediction)) +
     geom_bar(
-      aes(fill = fct_reorder2(state, county, risk_estimate)),
+      aes(fill = fct_reorder2(state, county, risk_prediction)),
       stat = "identity",
       width = 0.8,
       alpha = 0.8
     ) +
-    scale_x_discrete(labels = rev(county_table$county)) +
+    scale_x_discrete(labels = rev(cnty_table$county)) +
     scale_fill_manual(values = get_palette(palette_len)) +
     labs(
-      title = "Counties with Highest Estimated Risk",
+      subtitle = "Counties with Highest Predicted Risk",
       x = "",
       y = expression(rho),
       fill = "state"
     ) +
     coord_flip()
 ```
+
+There are `r format(nrow(cnty_risk_predictions), big.mark = ",")` U.S. counties represented in the New York Times data set.
 
 <br><br><br>
 
@@ -905,7 +1025,6 @@ us_mobility_pivot %>%
       color = "activity"
     ) +
     scale_color_jco()
-
 ```
 
 **Note:**  The dotted grey line on each of the mobility charts represents the date (March 13, 2020) on which the U.S. declared a [National Emergency Concerning the Novel Coronavirus Disease (COVID-19) Outbreak](https://www.whitehouse.gov/presidential-actions/proclamation-declaring-national-emergency-concerning-novel-coronavirus-disease-covid-19-outbreak/).
@@ -982,7 +1101,7 @@ us_mobility_pivot %>%
 
 ### Data Abnormalities
 
-Analysis of the New York Times United States reported death data reveals a repeating weekly pattern in which the updates on Sunday and Monday are consistently lower than those reported on the other days of the week. As mentioned in the data analysis description in the Background section, the risk estimation algorithm has been configured to reduce the effect of this variation on the statistical model.
+Analysis of the New York Times reported death data for the U.S. reveals a repeating weekly pattern in which the updates on Sunday and Monday are consistently lower than those reported on the other days of the week. As mentioned in the data analysis description in the Background section, the risk prediction algorithm has been configured to reduce the effect of this variation on the statistical model.
 
 <br>
 
@@ -1001,12 +1120,11 @@ us %>%
       alpha = 0.8
     ) +
     labs(
-      title = "Average Number of Reported Deaths by Day of the Week",
+      subtitle = "Average Number of Reported Deaths by Day of the Week",
       x = "day of week reported",
       y = "mean of reported deaths"
     ) +
     scale_y_continuous(labels = scales::comma)
-
 ```
 
 ```{r, include = FALSE}
