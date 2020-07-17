@@ -60,7 +60,7 @@ The COVID-19 data from both the John Hopkins and New York Times repositories are
 The risk assessment methodology used in this analysis has not been fully validated and is affected by noise in the data. There is a phenomenon that has been reported in White House press briefings in which some counties report updates on Mondays for the incremental changes over the weekend. Cyclical weekly variation can be observed in the data. This limits the accuracy of the model predictions. To increase prediction robustness, the model has been tuned to use data over a multi-day period as a compromise between the speed of the detection of a relevant changes in risk predictions and prediction error caused by sensitivity to noise.
 
 The predictive analytics model is built with the open-source [R programming language](https://en.wikipedia.org/wiki/R_(programming_language)) using the [Tidyverse](https://www.tidyverse.org/) family of packages.
- 
+
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(
   echo = FALSE,
@@ -79,9 +79,12 @@ library(RColorBrewer)
 library(magrittr)
 library(ggsci)
 source("../library/ded/ded.R")
+regions <- readr::read_csv("../library/regions.csv")
+eu_countries <- read_csv("../library/eu-countries.csv")
+gdp <- readr::read_csv("../library/gdp-ppp-per-capita.csv")  # per capita GDP (PPP) in international dollars
 
-prim_color <- pal_jco()(10)[2]
-sec_color <- pal_jco()(10)[1]
+prim_color <- pal_jco()(10)[1]
+alt_color <- pal_jco()(10)[5]
 
 theme_set(theme_minimal())
 ```
@@ -92,38 +95,36 @@ global_cases <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID
 
 global_deaths <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv")
 
-eu_countries <- read_csv("../library/eu-countries.csv")
-
 # tidy data
 #
 #   data comes in an untidy format with date columns containing the cumulative number of case or death entries
 
-global_cases <- global_cases %>% 
+global_cases <- global_cases %>%
   pivot_longer(
     cols = 5:ncol(global_cases),
     names_to = "date",
     values_to = "cases"
-  ) %>% 
+  ) %>%
   rename(
     province = `Province/State`,
     country = `Country/Region`,
     latitude = Lat,
     longitude = Long
-  ) %>% 
+  ) %>%
   mutate(
     date = lubridate::mdy(date)
   )
 
-eu_cases <- global_cases %>% 
+eu_cases <- global_cases %>%
   filter(country %in% c(eu_countries$Country, "Czechia"))
 
-eu_combined_cases <- eu_cases %>% 
-  group_by(date) %>% 
-  summarise(cases = sum(cases)) %>% 
+eu_combined_cases <- eu_cases %>%
+  group_by(date) %>%
+  summarise(cases = sum(cases)) %>%
   mutate(
     ncases = cases - lag(cases, default = cases[1])
   )
-  
+
 ```
 
 ```{r nytimes_tidy, include = FALSE}
@@ -207,24 +208,24 @@ covid <- function(state_name = "United States") {
     geom_smooth(
       aes(y = ndeaths * scale_d),
       se = FALSE,
-      color = prim_color,
+      color = "#808080",
       method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
       na.rm = TRUE
     ) +
     geom_smooth(
       aes(y = ncases),
       se = FALSE,
-      color = sec_color,
+      color = prim_color,
       method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
       na.rm = TRUE
     ) +
     geom_point(
-      aes(y = ndeaths * scale_d, color = sec_color),  # unclear why color reversal is required
-      size = 1.5, na.rm = TRUE, alpha = 0.8
+      aes(y = ndeaths * scale_d, color = prim_color),  # unclear why color reversal is required
+      size = 0.8, na.rm = TRUE, alpha = 0.8
     ) +
     geom_point(
-      aes(y = ncases, color = prim_color),  # unclear why color reversal is required
-      size = 1.5, na.rm = TRUE, alpha = 0.8
+      aes(y = ncases, color = "#808080"),  # unclear why color reversal is required
+      size = 0.8, na.rm = TRUE, alpha = 0.8
     ) +
     labs(
       subtitle = state_name,
@@ -248,14 +249,14 @@ covid <- function(state_name = "United States") {
     ) +
     scale_color_manual(
       labels = c("deaths", "cases"),
-      values = c(prim_color, sec_color),
+      values = c("#808080", prim_color),
       guide = FALSE
     ) +
     theme(
-      #axis.text.y = element_text(color = sec_color),
-      axis.title.y = element_text(color = sec_color),
-      #axis.text.y.right = element_text(color = prim_color),
-      axis.title.y.right = element_text(color = prim_color)
+      #axis.text.y = element_text(color = prim_color),
+      axis.title.y = element_text(color = prim_color),
+      #axis.text.y.right = element_text(color = "#808080"),
+      axis.title.y.right = element_text(color = "#808080")
     )
 
   p
@@ -284,24 +285,24 @@ covidc <- function(county_state) {
     geom_smooth(
       aes(y = ndeaths * scale_d),
       se = FALSE,
-      color = prim_color,
+      color = "#808080",
       method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
       na.rm = TRUE
     ) +
     geom_smooth(
       aes(y = ncases),
       se = FALSE,
-      color = sec_color,
+      color = prim_color,
       method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
       na.rm = TRUE
     ) +
     geom_point(
-      aes(y = ndeaths * scale_d, color = sec_color),  # unclear why color reversal is required
-      size = 1.5, na.rm = TRUE, alpha = 0.8
+      aes(y = ndeaths * scale_d, color = prim_color),  # unclear why color reversal is required
+      size = 0.8, na.rm = TRUE, alpha = 0.8
     ) +
     geom_point(
-      aes(y = ncases, color = prim_color),  # unclear why color reversal is required
-      size = 1.5, na.rm = TRUE, alpha = 0.8
+      aes(y = ncases, color = "#808080"),  # unclear why color reversal is required
+      size = 0.8, na.rm = TRUE, alpha = 0.8
     ) +
     labs(
       subtitle = str_glue("{cnty_name} County, {state_name}"),
@@ -331,16 +332,16 @@ covidc <- function(county_state) {
     ) +
     scale_color_manual(
       labels = c("deaths", "cases"),
-      values = c(prim_color, sec_color),
+      values = c("#808080", prim_color),
       guide = FALSE
     ) +
     theme(
-      #axis.text.y = element_text(color = sec_color),
-      axis.title.y = element_text(color = sec_color),
-      #axis.text.y.right = element_text(color = prim_color),
-      axis.title.y.right = element_text(color = prim_color)
+      #axis.text.y = element_text(color = prim_color),
+      axis.title.y = element_text(color = prim_color),
+      #axis.text.y.right = element_text(color = "#808080"),
+      axis.title.y.right = element_text(color = "#808080")
     )
-    
+
   p
 }
 
@@ -357,25 +358,25 @@ covid_total <- function(state_name = "United States") {
 
   p <- ggplot(data = s, mapping = aes(x = date)) +
     geom_area(
-      aes(y = cases, fill = prim_color),
+      aes(y = cases, fill = "#808080"),
       na.rm = TRUE,
       alpha = 0.8
     ) +
     geom_area(
-      aes(y = deaths * scale_d, fill = sec_color),
+      aes(y = deaths * scale_d, fill = prim_color),
       na.rm = TRUE,
       alpha = 0.9
     ) +
     labs(
       subtitle = state_name,
       x = "",
-      y = "cases",
+      y = "cases (cumulative)",
       fill = ""
     ) +
     scale_y_continuous(
       labels = scales::comma,
       sec.axis = sec_axis(~ . / scale_d,
-                          name = "deaths",
+                          name = "deaths (cumulative)",
                           labels = scales::comma
                  )
     ) +
@@ -388,16 +389,16 @@ covid_total <- function(state_name = "United States") {
     ) +
     scale_fill_manual(
       labels = c("deaths", "cases"),
-      values = c(prim_color, sec_color),
+      values = c("#808080", prim_color),
       guide = FALSE
     ) +
     theme(
-      #axis.text.y = element_text(color = sec_color),
-      axis.title.y = element_text(color = sec_color),
-      #axis.text.y.right = element_text(color = prim_color),
-      axis.title.y.right = element_text(color = prim_color)
+      #axis.text.y = element_text(color = prim_color),
+      axis.title.y = element_text(color = prim_color),
+      #axis.text.y.right = element_text(color = "#808080"),
+      axis.title.y.right = element_text(color = "#808080")
     )
-    
+
   p
 }
 
@@ -413,19 +414,19 @@ covidc_total <- function(county_state) {
 
   p <- ggplot(data = c, mapping = aes(x = date)) +
    geom_area(
-      aes(y = cases, fill = prim_color),
+      aes(y = cases, fill = "#808080"),
       na.rm = TRUE,
       alpha = 0.8
     ) +
     geom_area(
-      aes(y = deaths * scale_d, fill = sec_color),
+      aes(y = deaths * scale_d, fill = prim_color),
       na.rm = TRUE,
       alpha = 0.9
     ) +
     labs(
       subtitle = str_glue("{cnty_name} County, {state_name}"),
       x = "",
-      y = "cases",
+      y = "cases (cumulative)",
       fill = ""
     ) +
     scale_x_date(limits = as.Date(c("2020-03-01",
@@ -437,7 +438,7 @@ covidc_total <- function(county_state) {
     scale_y_continuous(
       labels = scales::comma,
       sec.axis = sec_axis(~ . / scale_d,
-                          name = "deaths",
+                          name = "deaths (cumulative)",
                           labels = scales::comma
                  )
     ) +
@@ -450,16 +451,16 @@ covidc_total <- function(county_state) {
     ) +
     scale_fill_manual(
       labels = c("deaths", "cases"),
-      values = c(prim_color, sec_color),
+      values = c("#808080", prim_color),
       guide = FALSE
     ) +
     theme(
-      #axis.text.y = element_text(color = sec_color),
-      axis.title.y = element_text(color = sec_color),
-      #axis.text.y.right = element_text(color = prim_color),
-      axis.title.y.right = element_text(color = prim_color)
+      #axis.text.y = element_text(color = prim_color),
+      axis.title.y = element_text(color = prim_color),
+      #axis.text.y.right = element_text(color = "#808080"),
+      axis.title.y.right = element_text(color = "#808080")
     )
-    
+
   p
 }
 
@@ -510,17 +511,36 @@ calculate_risk_prediction_cnty_c <- compiler::cmpfun(calculate_risk_prediction_c
 ```{r global, include = FALSE}
 # global analysis
 
-country_risk_predictions <- global_cases %>% distinct(country)
-country_risk_predictions <- country_risk_predictions %>%  # calculate risk prediction for each country
+global_risk_predictions <- global_cases %>% distinct(country)
+global_risk_predictions <- global_risk_predictions %>%  # calculate risk prediction for each country
   mutate(
-    risk_prediction = map_dbl(country_risk_predictions$country,
+    risk_prediction = map_dbl(global_risk_predictions$country,
                             ~ calculate_risk_prediction_country_c(.)
                             )
   )
-  
-gdp <- readr::read_csv("../library/gdp-ppp-per-capita.csv")  # per capita GDP (PPP) in international dollars
 
-gdp <- gdp %>%  # match country names where different prior to join
+regions_join <- regions %>%
+  mutate(country = recode(country,
+                          "United States" = "US",
+                          "Cape Verde" = "Cabo Verde",
+                          "Congo, Dem. Rep." = "Congo (Brazzaville)",
+                          "Congo, Rep." = "Congo (Kinshasa)",
+                          "Czech Republic" = "Czechia",
+                          "Taiwan" = "Taiwan*",
+                          "São Tomé and Príncipe" = "Sao Tome and Principe",
+                          "South Korea" = "Korea, South",
+                          "Kyrgyz Republic" = "Kyrgyzstan",
+                          "St. Lucia" = "Saint Lucia",
+                          "St. Vincent and the Grenadines" = "Saint Vincent and the Grenadines",
+                          "Slovak Republic" = "Slovakia",
+                          "Lao" = "Laos"
+                          )
+  )
+
+global_risk_predictions <- global_risk_predictions %>%
+  left_join(regions_join, by = "country")
+
+gdp_join <- gdp %>%  # match country names where different prior to join
   mutate(country = recode(country,
                           "Bahamas, The" = "Bahamas",
                           "People's Republic of China" = "China",
@@ -537,11 +557,12 @@ gdp <- gdp %>%  # match country names where different prior to join
                           )
   )
 
-country_risk_gdp <- country_risk_predictions %>% 
-  left_join(gdp, by = "country") %>% 
+global_predictions_gdp <- global_risk_predictions %>%
+  left_join(gdp_join, by = "country") %>%
   filter(!is.na(gdp_ppp_pcap))
 ```
-```{r country, include = FALSE}
+
+```{r us, include = FALSE}
 # u.s. analysis
 
 us <- us %>%
@@ -568,10 +589,10 @@ state_risk_predictions <- state_risk_predictions %>% # calculate risk prediction
 
 state_alarm <- 25
 count_alarm_states <- sum(state_risk_predictions$risk_prediction >= state_alarm)
-  
+
 state_df <- state_risk_predictions %>% # highest risk predictions
   filter(risk_prediction > 5) %>%
-  top_n(max(c(count_alarm_states, 15)), risk_prediction)
+  top_n(max(c(min(c(count_alarm_states,20)), 15)), risk_prediction)
 ```
 
 ```{r counties, include = FALSE}
@@ -610,13 +631,13 @@ cnty_table <- cnty_risk_predictions %>% # highest risk predictions
 ### World
 
 ```{r world_risk, include = FALSE}
-country_risk_predictions %>% 
-  top_n(5, risk_prediction) %>% 
+global_risk_predictions %>%
+  top_n(5, risk_prediction) %>%
   ggplot(aes(fct_reorder(country, desc(risk_prediction)), risk_prediction)) +
     geom_col(
       width = 0.8,
       alpha = 0.8,
-      fill = sec_color
+      fill = prim_color
     ) +
     labs(
       subtitle = "Countries with Highest Predicted Risk",
@@ -626,20 +647,25 @@ country_risk_predictions %>%
     scale_y_continuous(labels = scales::comma)
 ```
 
-```{r, world_risk_gdp, out.width = "85%"}
-country_risk_gdp %>% 
+```{r, world_risk_gdp, out.width = "95%"}
+global_predictions_gdp %>%
   mutate(country = recode(country,
                           "US" = "United States"
                           )
-  ) %>% 
-  filter(risk_prediction > 25) %>% 
+  ) %>%
+  filter(risk_prediction > 25) %>%
   ggplot(aes(gdp_ppp_pcap, risk_prediction)) +
     geom_point(
-      size = 2.5,
-      color = sec_color
+      aes(color = continent),
+      alpha = 0.8,
+      size = 3.0
     ) +
     #scale_x_continuous(trans = "log10")
-    ggrepel::geom_text_repel(aes(label = country)) +
+    ggrepel::geom_text_repel(
+      aes(label = country),
+      point.padding = 0.1,
+      segment.color = "grey"
+    ) +
     labs(
       subtitle = "Prediction of COVID-19 Risk vs Gross Domestic Product",
       x = "per capita GDP",
@@ -652,13 +678,14 @@ country_risk_gdp %>%
     ) +
     coord_cartesian(
       ylim = c(10, NA)
-    )
+    ) +
+    scale_color_brewer(palette = "Set1")
 
 ```
 
-There are `r nrow(country_risk_predictions)` countries represented in the Johns Hopkins University data set. The Gross Domestic Product (GDP) data shown above represents per capita GDP at purchasing power parity (PPP) in [international (Geary-Khamis) dollars](https://en.wikipedia.org/wiki/International_dollar). These data are obtained from the [Countries by GDP (PPP) per capita](https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(PPP)_per_capita) (Wikipedia) web page. Only countries with a risk prediction value over 25 are shown.
+There are `r nrow(global_risk_predictions)` countries represented in the Johns Hopkins University data set. The Gross Domestic Product (GDP) data shown above represents per capita GDP at purchasing power parity (PPP) in [international (Geary-Khamis) dollars](https://en.wikipedia.org/wiki/International_dollar). These data are obtained from the [Countries by GDP (PPP) per capita](https://en.wikipedia.org/wiki/List_of_countries_by_GDP_(PPP)_per_capita) (Wikipedia) web page. Only countries with a risk prediction value above 25 are shown.
 
-<br><br>
+<br>
 
 ---
 
@@ -695,10 +722,10 @@ The aggregated data from Johns Hopkins University CSSE was used to calculate a c
 
 <br>
 
-```{r us_eu_comparison, out.width = "80%"}
-eu_color <- "#808080"
+```{r us_eu_comparison, out.width = "95%"}
+eu_color <- alt_color  #"#e06f01"
 
-us %>% 
+us %>%
   ggplot(mapping = aes(x = date)) +
     # European Union
     geom_smooth(
@@ -707,7 +734,8 @@ us %>%
       se = FALSE,
       color = eu_color,
       method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
-      size = 1.0,
+      size = 0.8,
+      alpha = 0.6,
       na.rm = TRUE,
       show.legend = FALSE
     ) +
@@ -715,39 +743,44 @@ us %>%
       data = eu_combined_cases,
       aes(date, ncases),
       color = eu_color,
-      size = 1.3, na.rm = TRUE, alpha = 0.8,
+      size = 1.0,
+      alpha = 0.6,
+      na.rm = TRUE,
       show.legend = FALSE
     ) +
     annotate(
       geom = "text",
       label = "European Union",
       x = as.Date("2020-06-16"),
-      y = 8600,
+      y = 8800,
       color = eu_color,
-      size = 4.5
+      alpha = 0.8,
+      size = 4.0
     ) +
     # United States
     geom_smooth(
       aes(y = ncases),
       se = FALSE,
-      color = sec_color,
+      color = prim_color,
       method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
       size = 1.2,
       na.rm = TRUE,
       show.legend = FALSE
     ) +
     geom_point(
-      aes(y = ncases, color = sec_color),
-      color = sec_color,
-      size = 1.5, na.rm = TRUE, alpha = 0.8,
+      aes(y = ncases, color = prim_color),
+      color = prim_color,
+      size = 1.5,
+      alpha = 0.8,
+      na.rm = TRUE,
       show.legend = FALSE
     ) +
     annotate(
       geom = "text",
       label = "United States",
-      x = as.Date("2020-06-10"),
+      x = as.Date("2020-06-09"),
       y = 37500,
-      color = sec_color,
+      color = prim_color,
       size = 4.5
     ) +
     labs(
@@ -776,16 +809,14 @@ us %>%
 
 ### Individual States
 
-A total of `r count_alarm_states` states currently have risk predictions above 25.
-
-```{r state_predictions}
+```{r state_predictions, out.width = "90%"}
 state_df %>%
   ggplot(
     aes(x = reorder(state, risk_prediction), y = risk_prediction)) +
     geom_hline(yintercept = state_alarm,
                size = 0.5,
                color = "darkgrey",
-               linetype = "dashed"
+               linetype = "dotted"
     ) +
     geom_bar(
       aes(fill = risk_prediction < state_alarm),
@@ -801,8 +832,10 @@ state_df %>%
       y = expression(rho),
       fill = ""
     ) +
-    scale_fill_manual(values = c(prim_color, sec_color))
+    scale_fill_manual(values = c(prim_color, alt_color))
 ```
+
+A total of `r count_alarm_states` states currently have risk predictions above 25.
 
 ```{r state_charts, include = FALSE}
 p1 <- covid("Florida")
@@ -887,8 +920,6 @@ The data used for the analysis below is current through `r format(max(community_
 <br>
 
 ```{r community_mobility}
-regions <- readr::read_csv("../library/regions.csv")
-
 df_highlights <- community_mobility %>%
   filter(
     is.na(sub_region_1),
@@ -997,7 +1028,7 @@ us_mobility_pivot %>%
     activity_category,
     "retail and recreation=retail_and_recreation",
     "transit stations=transit_stations"
-  ) %>% 
+  ) %>%
   ggplot(aes(date, change_from_baseline, group = activity_category)) +
     geom_hline(
       yintercept = 0,
@@ -1062,7 +1093,7 @@ us_mobility_pivot %>%
     activity_category,
     "retail and recreation=retail_and_recreation",
     "transit stations=transit_stations"
-  ) %>% 
+  ) %>%
   ggplot(aes(date, change_from_baseline, color = state)) +
     geom_hline(
       yintercept = 0,
@@ -1106,17 +1137,17 @@ Analysis of the New York Times reported death data for the U.S. reveals a repeat
 <br>
 
 ```{r day_of_week, out.width = "65%"}
-us %>% 
-  mutate(day = wday(date, label = TRUE)) %>% 
-  group_by(day) %>% 
+us %>%
+  mutate(day = wday(date, label = TRUE)) %>%
+  group_by(day) %>%
   summarise(
     mean_ncases = mean(ncases),
     mean_ndeaths = mean(ndeaths),
     .groups = "drop"
-  ) %>% 
+  ) %>%
   ggplot(aes(day, mean_ndeaths)) +
     geom_col(
-      fill = sec_color,
+      fill = prim_color,
       alpha = 0.8
     ) +
     labs(
