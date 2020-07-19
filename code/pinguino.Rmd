@@ -29,7 +29,7 @@ pinguinos <- penguins %>%
     culmen_length = bill_length_mm,
     culmen_depth = bill_depth_mm,
     flipper_length = flipper_length_mm,
-    body_weight = body_mass_g
+    body_mass = body_mass_g
   )
 ```
 
@@ -53,7 +53,7 @@ pinguinos %>%
 
 ### Exploratory Analysis
 
-**Culmen length**, **culmen depth**, **flipper length**, **body weight**, **sex**, and **island** (6) can all be used as predictors for species.
+**Culmen length**, **culmen depth**, **flipper length**, **body mass**, **sex**, and **island** (6) can all be used as predictors for species.
 
 How well are culmen length and width correlated? Are they useful as independent predictors?
 
@@ -100,7 +100,7 @@ Adding island as a third predictor appears to allow even stronger predictions. (
 
 ```{r}
 pinguinos %>% 
-  ggplot(aes(flipper_length, body_weight)) +
+  ggplot(aes(flipper_length, body_mass)) +
     geom_point() +
     geom_smooth(
       method = "lm",
@@ -109,36 +109,38 @@ pinguinos %>%
       size = 0.8
     ) +
     labs(
-      title = "comparing flipper length and body weight",
+      title = "comparing flipper length and body mass",
       x = "flipper length (mm)",
-      y = "body weight (g)"
+      y = "body mass (g)"
     )
 ```
 
-```{r}
-corr_flipper_to_weight <- pinguinos %>% 
-  select(flipper_length, body_weight) %>% 
-  filter(!is.na(flipper_length), !is.na(body_weight)) %>% 
+```{r, include = FALSE}
+corr_flipper_to_mass <- pinguinos %>% 
+  select(flipper_length, body_mass) %>% 
+  filter(!is.na(flipper_length), !is.na(body_mass)) %>% 
   cor() %>% .[[2]]
 ```
 
-The observed penguin flipper length and body weight show a significant positive correlation (`r format(corr_flipper_to_weight, digits = 3)`). For this reason, we've chosen to use one or the other as a predictor (not both). The chosen predictors are `culmen_depth`, `culmen_length`, `body_weight`, `sex`, and `island`.
+The observed penguin flipper length and body mass show a significant positive correlation (**`r format(corr_flipper_to_mass, digits = 3)`**). For this reason, we've chosen to use one or the other as a predictor (not both). The chosen predictors are `culmen_depth`, `culmen_length`, `body_mass`, `sex`, and `island`.
 
 <br>
 
-### Predictive Analysis
+### Supervised Learning Predictive Modeling
 
-The `tidymodels` package was used to perform predictive analysis.
+The `tidymodels` package was used to perform predictive analysis using random forests and k-nearest neighbors supervised machine learning classification algorithms.
+
+<br>
 
 #### Pre-Processing
 
-```{r pre-process}
+```{r pre-process, include = FALSE}
 # split training and test data
 pinguino_split <- pinguinos %>% 
   filter(
     !is.na(culmen_length),
     !is.na(culmen_depth),
-    !is.na(body_weight),
+    !is.na(body_mass),
     !is.na(island),
     !is.na(sex)
   ) %>% 
@@ -148,7 +150,7 @@ pinguino_split <- pinguinos %>%
 
 # define pre-processing recipe steps and process training data
 pinguino_recipe <- training(pinguino_split) %>% 
-  recipe(species ~ culmen_length + culmen_depth + body_weight + island + sex) %>% 
+  recipe(species ~ culmen_length + culmen_depth + body_mass + island + sex) %>% 
   step_center(
     all_numeric(),
     -all_outcomes()
@@ -169,17 +171,15 @@ pinguino_training <- juice(pinguino_recipe)
 
 The data has been split into training and test data sets using the `rsample` data sampling package with 80% of the observations used for training the model. All numeric predictors have been normalized to a mean of zero and standard deviation of one using the `recipe` package.
 
-#### Training
+<br>
 
-```{r train_random_forest}
+#### Random Forests
+
+```{r train_random_forest, include = FALSE}
 pinguino_forest <- rand_forest(trees = 200, mode = "classification") %>% 
   set_engine("randomForest") %>% 
-  fit(species ~ culmen_length + culmen_depth + body_weight + island + sex, data = pinguino_training)
+  fit(species ~ culmen_length + culmen_depth + body_mass + island + sex, data = pinguino_training)
 ```
-
-A **random forest** supervised machine learning classification model (`randomForest` package) was fit to the test data using the `parsnip` package.
-
-#### Model Validation
 
 ```{r predict_random_forest}
 pinguino_forest_accuracy <- pinguino_forest %>% 
@@ -189,10 +189,52 @@ pinguino_forest_accuracy <- pinguino_forest %>%
   .estimate
 ```
 
-The trained model was used to generate predictions from the sampled test data, and the accuracy of the predictions was calculated using the `yardstick` package. The model's calculated accuracy is **`r format(pinguino_forest_accuracy[1] * 100, digits = 3)`%**, and the Cohen's κ coefficient is `r format(pinguino_forest_accuracy[2], digits = 3)`.
+A **random forests** classification algorithm (`randomForest` package) was trained on the test data using the `parsnip` package. All five predictors were used. The number of decision trees was set to 200.
 
-<br><br>
+The trained model was used to generate predictions from the sampled test data, and the accuracy of the predictions was calculated using the `yardstick` package. The model's calculated accuracy is **`r format(pinguino_forest_accuracy[1] * 100, digits = 3)`%**, and the Cohen's κ coefficient is `r format(pinguino_forest_accuracy[2], digits = 3)`. The confusion matrix of results is below.
 
----
+```{r forest_confusion_matrix, out.width = "70%"}
+cm <- pinguino_forest %>% 
+  predict(pinguino_testing) %>% 
+  bind_cols(pinguino_testing) %>% 
+  conf_mat(truth = species, estimate = .pred_class)
 
-[alternate analysis](https://towardsdatascience.com/penguins-dataset-overview-iris-alternative-9453bb8c8d95)
+autoplot(cm, type = "heatmap")
+``` 
+
+<br>
+
+#### k-Nearest Neighbors
+
+```{r train_knn, include = FALSE}
+pinguino_knn <- nearest_neighbor(mode = "classification", dist_power = 2, weight_func = "optimal") %>% 
+  set_engine("kknn") %>% 
+  fit(species ~ culmen_length + culmen_depth + body_mass, data = pinguino_training)
+```
+
+```{r predict_knn}
+pinguino_knn_accuracy <- pinguino_knn %>% 
+  predict(pinguino_testing) %>% 
+  bind_cols(pinguino_testing) %>% 
+  metrics(truth = species, estimate = .pred_class) %$% 
+  .estimate
+```
+
+A **weighted k-nearest neighbors** classification algorithm (`kknn` package) was trained on the test data using the `parsnip` package. Only the three numeric predictors (culmen length, culmen depth, and body mass) were used. The default value of k=5 was used, and Euclidean distance was used for distance calculation.
+
+The trained model was used to generate predictions from the sampled test data, and the accuracy of the predictions was again calculated using the `yardstick` package. The model's calculated accuracy is **`r format(pinguino_knn_accuracy[1] * 100, digits = 3)`%**, and the Cohen's κ coefficient is `r format(pinguino_knn_accuracy[2], digits = 3)`. The resulting confusion matrix is below.
+
+```{r knn_confusion, out.width = "70%"}
+cm_knn <- pinguino_knn %>% 
+  predict(pinguino_testing) %>% 
+  bind_cols(pinguino_testing) %>% 
+  conf_mat(truth = species, estimate = .pred_class)
+
+autoplot(cm_knn, type = "heatmap")
+``` 
+
+<br>
+
+#### Model Comparison
+
+Each model performed well. In general, the performance of the random forests and k-nearest neighbors models is virtual identical within the limited model validation completed and the within variation observed due to in the training-test data sampling method. Detailed cross-validation has not been performed. Since the data set is small, no evaluation of relative computational efficiency has been considered.
