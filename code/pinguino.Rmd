@@ -1,0 +1,198 @@
+---
+title: "Pinguino (Predictions)"
+author: "Duane Edmonds"
+output: html_document
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  echo = FALSE,
+  out.width = "85%",
+  fig.asp = 0.8,
+  fig.align = "center",
+  message = FALSE,
+  warning = FALSE
+)
+
+library(tidymodels)
+library(magrittr)
+library(ggsci)
+
+theme_set(theme_minimal())
+```
+
+```{r data, include = FALSE}
+library(palmerpenguins)
+
+pinguinos <- penguins %>% 
+  rename(
+    culmen_length = bill_length_mm,
+    culmen_depth = bill_depth_mm,
+    flipper_length = flipper_length_mm,
+    body_weight = body_mass_g
+  )
+```
+
+<br>
+
+### Data Set
+
+I am using Allison Horst's [`palmerpinguins`](https://github.com/allisonhorst/palmerpenguins) package for predictive classification analysis. The original data were collected and made available by Dr. Kristen Gorman and the Palmer Station, Antarctica LTER, a member of the Long Term Ecological Research Network.
+
+https://github.com/allisonhorst/palmerpenguins
+
+The data set contains data (344 observations) for 3 different species of penguins, collected from 3 islands in the Palmer Archipelago, Antarctica.
+
+```{r}
+pinguinos %>% 
+  head() %>% 
+  knitr::kable()
+```
+
+<br>
+
+### Exploratory Analysis
+
+**Culmen length**, **culmen depth**, **flipper length**, **body weight**, **sex**, and **island** (6) can all be used as predictors for species.
+
+How well are culmen length and width correlated? Are they useful as independent predictors?
+
+```{r}
+pinguinos %>% 
+  ggplot(aes(culmen_length, culmen_depth)) +
+    geom_point(
+      aes(
+        color = species
+      ),
+      size = 2.5,
+      alpha = 0.8
+    ) +
+    labs(
+      title = "comparing culmen depth and length for each species",
+      x = "culmen length (mm)",
+      y = "culmen depth (mm)"
+    ) +
+    scale_color_jco()
+```
+
+Surprisingly, it appears that we could make very good predictions based on culmen length and depth alone. Supervised learning algorithms (e.g., k-nearest neighbors (k-NN), a decision tree, random forest) should be effective. It might also be interesting to implement a neural network classifier using this data, although the size of the data set might be limiting.
+  
+```{r}
+pinguinos %>% 
+  ggplot(aes(culmen_length, culmen_depth)) +
+    geom_point(
+      aes(
+        color = species,
+        shape = island
+      ),
+      size = 2.5,
+      alpha = 0.8
+    ) +
+    labs(
+      title = "comparing culmen depth and length for each species",
+      x = "culmen length (mm)",
+      y = "culmen depth (mm)"
+    ) +
+    scale_color_jco()
+```
+
+Adding island as a third predictor appears to allow even stronger predictions. (In fact, the Gentoo species is only found in the Biscoe Islands according to the data.)
+
+```{r}
+pinguinos %>% 
+  ggplot(aes(flipper_length, body_weight)) +
+    geom_point() +
+    geom_smooth(
+      method = "lm",
+      color = "black",
+      se = 0,
+      size = 0.8
+    ) +
+    labs(
+      title = "comparing flipper length and body weight",
+      x = "flipper length (mm)",
+      y = "body weight (g)"
+    )
+```
+
+```{r}
+corr_flipper_to_weight <- pinguinos %>% 
+  select(flipper_length, body_weight) %>% 
+  filter(!is.na(flipper_length), !is.na(body_weight)) %>% 
+  cor() %>% .[[2]]
+```
+
+The observed penguin flipper length and body weight show a significant positive correlation (`r format(corr_flipper_to_weight, digits = 3)`). For this reason, we've chosen to use one or the other as a predictor (not both). The chosen predictors are `culmen_depth`, `culmen_length`, `body_weight`, `sex`, and `island`.
+
+<br>
+
+### Predictive Analysis
+
+The `tidymodels` package was used to perform predictive analysis.
+
+#### Pre-Processing
+
+```{r pre-process}
+# split training and test data
+pinguino_split <- pinguinos %>% 
+  filter(
+    !is.na(culmen_length),
+    !is.na(culmen_depth),
+    !is.na(body_weight),
+    !is.na(island),
+    !is.na(sex)
+  ) %>% 
+  initial_split(
+    prop = 0.8
+  )
+
+# define pre-processing recipe steps and process training data
+pinguino_recipe <- training(pinguino_split) %>% 
+  recipe(species ~ culmen_length + culmen_depth + body_weight + island + sex) %>% 
+  step_center(
+    all_numeric(),
+    -all_outcomes()
+  ) %>% # normalize predictors to a mean of zero
+  step_scale(
+    all_numeric(),
+    -all_outcomes()
+  ) %>% # normalize predictors to a standard deviation of one
+  prep()
+
+# perform same pre-processing steps on test data
+pinguino_testing <- pinguino_recipe %>% 
+  bake(testing(pinguino_split))
+
+# extract training data
+pinguino_training <- juice(pinguino_recipe)
+```
+
+The data has been split into training and test data sets using the `rsample` data sampling package with 80% of the observations used for training the model. All numeric predictors have been normalized to a mean of zero and standard deviation of one using the `recipe` package.
+
+#### Training
+
+```{r train_random_forest}
+pinguino_forest <- rand_forest(trees = 200, mode = "classification") %>% 
+  set_engine("randomForest") %>% 
+  fit(species ~ culmen_length + culmen_depth + body_weight + island + sex, data = pinguino_training)
+```
+
+A **random forest** supervised machine learning classification model (`randomForest` package) was fit to the test data using the `parsnip` package.
+
+#### Model Validation
+
+```{r predict_random_forest}
+pinguino_forest_accuracy <- pinguino_forest %>% 
+  predict(pinguino_testing) %>% 
+  bind_cols(pinguino_testing) %>% 
+  metrics(truth = species, estimate = .pred_class) %$% 
+  .estimate
+```
+
+The trained model was used to generate predictions from the sampled test data, and the accuracy of the predictions was calculated using the `yardstick` package. The model's calculated accuracy is **`r format(pinguino_forest_accuracy[1] * 100, digits = 3)`%**, and the Cohen's κ coefficient is `r format(pinguino_forest_accuracy[2], digits = 3)`.
+
+<br><br>
+
+---
+
+[alternate analysis](https://towardsdatascience.com/penguins-dataset-overview-iris-alternative-9453bb8c8d95)
