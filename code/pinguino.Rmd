@@ -18,7 +18,7 @@ library(tidymodels)
 library(magrittr)
 library(ggsci)
 
-theme_set(theme_minimal())
+theme_set(theme_grey())
 ```
 
 ```{r data, include = FALSE}
@@ -37,7 +37,7 @@ pinguinos <- penguins %>%
 
 ### Data Set
 
-I am using Allison Horst's [`palmerpinguins`](https://github.com/allisonhorst/palmerpenguins) package for predictive classification analysis. The original data were collected and made available by Dr. Kristen Gorman and the Palmer Station, Antarctica LTER, a member of the Long Term Ecological Research Network.
+I am using Allison Horst's [`palmerpinguins`](https://github.com/allisonhorst/palmerpenguins) data package for predictive analysis. The original data were collected and made available by Dr. Kristen Gorman at the Palmer Station research station in Antarctica, a member of the Long Term Ecological Research (LTER) network.
 
 https://github.com/allisonhorst/palmerpenguins
 
@@ -53,9 +53,9 @@ pinguinos %>%
 
 ### Exploratory Analysis
 
-**Culmen length**, **culmen depth**, **flipper length**, **body mass**, **sex**, and **island** (6) can all be used as predictors for species.
+**Culmen length**, **culmen depth**, **flipper length**, **body mass**, **sex**, and **island** (6) can be used as predictors for species.
 
-How well are culmen length and width correlated? Are they useful as independent predictors?
+Let's try to visualize the data to get a sense of which predictors will be most useful.
 
 ```{r}
 pinguinos %>% 
@@ -68,37 +68,83 @@ pinguinos %>%
       alpha = 0.8
     ) +
     labs(
-      title = "comparing culmen depth and length for each species",
+      subtitle = "culmen depth and length",
       x = "culmen length (mm)",
       y = "culmen depth (mm)"
     ) +
     scale_color_jco()
 ```
 
-Surprisingly, it appears that we could make very good predictions based on culmen length and depth alone. Supervised learning algorithms (e.g., k-nearest neighbors (k-NN), a decision tree, random forest) should be effective. It might also be interesting to implement a neural network classifier using this data, although the size of the data set might be limiting.
-  
+Surprisingly, we could make good predictions based on culmen length and depth alone based on the chart. Supervised learning algorithms (e.g., k-nearest neighbors (k-NN), decision tree, random forest) should be effective with this data set. It might also be interesting to implement a neural network classifier using this data.
+
 ```{r}
 pinguinos %>% 
   ggplot(aes(culmen_length, culmen_depth)) +
     geom_point(
       aes(
         color = species,
-        shape = island
+        alpha = body_mass,
+        size = body_mass
+      )
+    ) +
+    labs(
+      subtitle = "culmen depth and length and body mass",
+      x = "culmen length (mm)",
+      y = "culmen depth (mm)",
+      size = "body mass (g)",
+      alpha = "body mass (g)"
+    ) +
+    scale_color_jco()
+```
+
+```{r}
+pinguinos %>% 
+  filter(!is.na(body_mass)) %>% 
+  ggplot(aes(species, body_mass)) +
+    geom_violin(
+      aes(
+        fill = species
+      ),
+      alpha = 0.8
+    ) +
+    geom_boxplot(
+      width = 0.05,
+      outlier.shape = NA
+    ) +
+    labs(
+      subtitle = "body mass distribution by species",
+      x = "",
+      y = "body mass (g)"
+    ) +
+    scale_fill_jco()
+```
+
+Adding body mass as a predictor appears to further distinguish the species.
+
+```{r, fig.asp = 2.0} 
+pinguinos %>% 
+  drop_na() %>% 
+  ggplot(aes(culmen_length, culmen_depth)) +
+    geom_point(
+      aes(
+        color = species,
+        shape = sex
       ),
       size = 2.5,
       alpha = 0.8
     ) +
     labs(
-      title = "comparing culmen depth and length for each species",
+      subtitle = "culmen depth and length, sex, and island",
       x = "culmen length (mm)",
       y = "culmen depth (mm)"
     ) +
+    facet_grid(island ~ .) +
     scale_color_jco()
 ```
 
-Adding island as a third predictor appears to allow even stronger predictions. (In fact, the Gentoo species is only found in the Biscoe Islands according to the data.)
+The island feature appears to allow even stronger predictions. The Gentoo species is only found in the Biscoe Islands, and Chinstrap species are found only on Dream Island in the data.
 
-```{r}
+```{r, out.width = "75%"}
 pinguinos %>% 
   ggplot(aes(flipper_length, body_mass)) +
     geom_point() +
@@ -109,7 +155,7 @@ pinguinos %>%
       size = 0.8
     ) +
     labs(
-      title = "comparing flipper length and body mass",
+      title = "flipper length vs body mass",
       x = "flipper length (mm)",
       y = "body mass (g)"
     )
@@ -122,7 +168,7 @@ corr_flipper_to_mass <- pinguinos %>%
   cor() %>% .[[2]]
 ```
 
-The observed penguin flipper length and body mass show a significant positive correlation (**`r format(corr_flipper_to_mass, digits = 3)`**). For this reason, we've chosen to use one or the other as a predictor (not both). The chosen predictors are `culmen_depth`, `culmen_length`, `body_mass`, `sex`, and `island`.
+The observed penguin flipper length and body mass show a significant positive correlation (**`r format(corr_flipper_to_mass, digits = 3)`**). For this reason, we've chosen to use one or the other as a predictor (not both).
 
 <br>
 
@@ -189,7 +235,7 @@ pinguino_forest_accuracy <- pinguino_forest %>%
   .estimate
 ```
 
-A **random forests** classification algorithm (`randomForest` package) was trained on the test data using the `parsnip` package. All five predictors were used. The number of decision trees was set to 200.
+A **random forests** classification algorithm (`randomForest` package) was trained on the test data using the `parsnip` package. The predictors used were **culmen depth**, **culmen length**, **body mass**, **island**, and **sex** (3 numeric and 2 categorical). The number of trees was set to 200.
 
 The trained model was used to generate predictions from the sampled test data, and the accuracy of the predictions was calculated using the `yardstick` package. The model's calculated accuracy is **`r format(pinguino_forest_accuracy[1] * 100, digits = 3)`%**, and the Cohen's κ coefficient is `r format(pinguino_forest_accuracy[2], digits = 3)`. The confusion matrix of results is below.
 
@@ -220,7 +266,7 @@ pinguino_knn_accuracy <- pinguino_knn %>%
   .estimate
 ```
 
-A **weighted k-nearest neighbors** classification algorithm (`kknn` package) was trained on the test data using the `parsnip` package. Only the three numeric predictors (culmen length, culmen depth, and body mass) were used. The default value of k=5 was used, and Euclidean distance was used for distance calculation.
+A **weighted k-nearest neighbors** classification algorithm (`kknn` package) was trained on the test data using the `parsnip` package. The three numeric predictors (**culmen depth**, **culmen length**, and **body mass**) were used, and Euclidean distance was used for distance calculation. The package default of 5 nearest neighbors was left unchanged. The "optimal" kernel weight function was used.
 
 The trained model was used to generate predictions from the sampled test data, and the accuracy of the predictions was again calculated using the `yardstick` package. The model's calculated accuracy is **`r format(pinguino_knn_accuracy[1] * 100, digits = 3)`%**, and the Cohen's κ coefficient is `r format(pinguino_knn_accuracy[2], digits = 3)`. The resulting confusion matrix is below.
 
@@ -237,4 +283,4 @@ autoplot(cm_knn, type = "heatmap")
 
 #### Model Comparison
 
-Each model performed well. In general, the performance of the random forests and k-nearest neighbors models is virtual identical within the limited model validation completed and the within variation observed due to in the training-test data sampling method. Detailed cross-validation has not been performed. Since the data set is small, no evaluation of relative computational efficiency has been considered.
+Each algorithm performed very well with this data set. In general, the performance of the random forests and k-nearest neighbors models is very similar within the limited model validation completed and the within variation caused by the training-test data sampling. The random forests model seems to perform slightly better. This stands to reason since the random forests model makes use of two additional categorical predictors. Detailed cross-validation has not been performed. Since the data set is small, no evaluation of relative computational efficiency has been explored.
