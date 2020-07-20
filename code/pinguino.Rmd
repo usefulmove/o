@@ -227,7 +227,7 @@ pinguino_forest <- rand_forest(trees = 200, mode = "classification") %>%
   fit(species ~ culmen_length + culmen_depth + body_mass + island + sex, data = pinguino_training)
 ```
 
-```{r predict_random_forest}
+```{r predict_random_forest, include = FALSE}
 pinguino_forest_accuracy <- pinguino_forest %>% 
   predict(pinguino_testing) %>% 
   bind_cols(pinguino_testing) %>% 
@@ -237,9 +237,9 @@ pinguino_forest_accuracy <- pinguino_forest %>%
 
 A **random forests** classification algorithm (`randomForest` package) was trained on the test data using the `parsnip` package. The predictors used were **culmen depth**, **culmen length**, **body mass**, **island**, and **sex** (3 numeric and 2 categorical). The number of trees was set to 200.
 
-The trained model was used to generate predictions from the sampled test data, and the accuracy of the predictions was calculated using the `yardstick` package. The model's calculated accuracy is **`r format(pinguino_forest_accuracy[1] * 100, digits = 3)`%**, and the Cohen's κ coefficient is `r format(pinguino_forest_accuracy[2], digits = 3)`. The confusion matrix of results is below.
+The trained model was then used to generate predictions from the sampled test data, and the accuracy of the predictions was calculated using the `yardstick` package for initial evaluation. The calculated accuracy was used to refine the model, as necessary.
 
-```{r forest_confusion_matrix, out.width = "70%"}
+```{r forest_confusion_matrix, eval = FALSE, out.width = "70%"}
 cm <- pinguino_forest %>% 
   predict(pinguino_testing) %>% 
   bind_cols(pinguino_testing) %>% 
@@ -258,7 +258,7 @@ pinguino_knn <- nearest_neighbor(mode = "classification", dist_power = 2, weight
   fit(species ~ culmen_length + culmen_depth + body_mass, data = pinguino_training)
 ```
 
-```{r predict_knn}
+```{r predict_knn, include = FALSE}
 pinguino_knn_accuracy <- pinguino_knn %>% 
   predict(pinguino_testing) %>% 
   bind_cols(pinguino_testing) %>% 
@@ -268,9 +268,9 @@ pinguino_knn_accuracy <- pinguino_knn %>%
 
 A **weighted k-nearest neighbors** classification algorithm (`kknn` package) was trained on the test data using the `parsnip` package. The three numeric predictors (**culmen depth**, **culmen length**, and **body mass**) were used, and Euclidean distance was used for distance calculation. The package default of 5 nearest neighbors was left unchanged. The "optimal" kernel weight function was used.
 
-The trained model was used to generate predictions from the sampled test data, and the accuracy of the predictions was again calculated using the `yardstick` package. The model's calculated accuracy is **`r format(pinguino_knn_accuracy[1] * 100, digits = 3)`%**, and the Cohen's κ coefficient is `r format(pinguino_knn_accuracy[2], digits = 3)`. The resulting confusion matrix is below.
+As with the random forests model, the trained model was used to generate predictions from the sampled test data, and the accuracy of the predictions was calculated using the `yardstick` package.
 
-```{r knn_confusion, out.width = "70%"}
+```{r knn_confusion, include = FALSE, out.width = "70%"}
 cm_knn <- pinguino_knn %>% 
   predict(pinguino_testing) %>% 
   bind_cols(pinguino_testing) %>% 
@@ -279,8 +279,116 @@ cm_knn <- pinguino_knn %>%
 autoplot(cm_knn, type = "heatmap")
 ``` 
 
+```{r cross-validation, eval = FALSE}
+sample_forest <- function() {
+  # re-split training and test data
+  pinguino_split_cv <- pinguinos %>% 
+    filter(
+      !is.na(culmen_length),
+      !is.na(culmen_depth),
+      !is.na(body_mass),
+      !is.na(island),
+      !is.na(sex)
+    ) %>% 
+    initial_split(
+      prop = 0.8
+    )
+  
+  # re-bake training and test data
+  pinguino_training_cv <- pinguino_recipe %>% 
+    bake(training(pinguino_split_cv))
+  
+  pinguino_testing_cv <- pinguino_recipe %>% 
+    bake(testing(pinguino_split_cv))
+  
+  # train model
+  pinguino_forest_cv <- rand_forest(trees = 200, mode = "classification") %>% 
+    set_engine("randomForest") %>% 
+    fit(species ~ culmen_length + culmen_depth + body_mass + island + sex, data = pinguino_training_cv)
+  
+  # make predictions
+  pinguino_forest_accuracy_cv <- pinguino_forest_cv %>% 
+    predict(pinguino_testing_cv) %>% 
+    bind_cols(pinguino_testing_cv) %>% 
+    metrics(truth = species, estimate = .pred_class) %$% 
+    .estimate
+  
+  # return accuracy
+  pinguino_forest_accuracy_cv[1]
+}
+
+sample_knn <- function() {
+  # re-split training and test data
+  pinguino_split_cv <- pinguinos %>% 
+    filter(
+      !is.na(culmen_length),
+      !is.na(culmen_depth),
+      !is.na(body_mass),
+      !is.na(island),
+      !is.na(sex)
+    ) %>% 
+    initial_split(
+      prop = 0.8
+    )
+  
+  # re-bake training and test data
+  pinguino_training_cv <- pinguino_recipe %>% 
+    bake(training(pinguino_split_cv))
+  
+  pinguino_testing_cv <- pinguino_recipe %>% 
+    bake(testing(pinguino_split_cv))
+    
+  # train model
+  pinguino_knn_cv <- nearest_neighbor(mode = "classification", dist_power = 2, weight_func = "optimal") %>% 
+    set_engine("kknn") %>% 
+    fit(species ~ culmen_length + culmen_depth + body_mass, data = pinguino_training_cv)
+  
+  # make predictions
+  pinguino_knn_accuracy_cv <- pinguino_knn_cv %>% 
+    predict(pinguino_testing_cv) %>% 
+    bind_cols(pinguino_testing_cv) %>% 
+    metrics(truth = species, estimate = .pred_class) %$% 
+    .estimate
+  
+  # return accuracy
+  pinguino_knn_accuracy_cv[1]
+}
+
+samples <- 1000
+
+f_start <- Sys.time()
+
+forest_results <- vector(mode = "numeric", length = samples)
+for (i in 1:samples) {
+  forest_results[i] <- sample_forest()
+}
+
+k_start <- Sys.time()
+
+knn_results <- vector(mode = "numeric", length = samples)
+for (i in 1:samples) {
+  knn_results[i] <- sample_knn()
+}
+
+k_end <- Sys.time()
+
+overall_forest_accuracy <- mean(forest_results)
+overall_knn_accuracy <- mean(knn_results)
+```
+
 <br>
 
-#### Model Comparison
+### Model Comparison
 
-Each algorithm performed very well with this data set. In general, the performance of the random forests and k-nearest neighbors models is very similar within the limited model validation completed and the within variation caused by the training-test data sampling. The random forests model seems to perform slightly better. This stands to reason since the random forests model makes use of two additional categorical predictors. Detailed cross-validation has not been performed. Since the data set is small, no evaluation of relative computational efficiency has been explored.
+A simple cross-validation algorithm was developed to determine the accuracy of both models. Both algorithms performed very well with this data set. The performance of the random forests and k-nearest neighbors models is nearly identical. The random forests model consistently performs ever so slightly better (see table below). This stands to reason since the random forests model makes use of two additional categorical predictors, compared with the k-nearest neighbors model.
+
+```{r}
+tribble(
+  ~model, ~accuracy,
+  "random forests", 0.98895,
+  "k-nearest neighbors", 0.98791
+) %>% 
+  knitr::kable()
+```
+
+The computational efficiency of each training each model and generating predictions was explored, and no significant difference was observed. (The k-nearest neighbors was 2.0% faster.) This exploration was not rigorous, however, and no effort was made to separate out the time each took to generate model predictions, which is probably the more meaningful metric.
