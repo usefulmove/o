@@ -44,7 +44,7 @@ https://github.com/allisonhorst/palmerpenguins
 The data set contains data (344 observations) for 3 different species of penguins, collected from 3 islands in the Palmer Archipelago, Antarctica.
 
 ```{r}
-pinguinos %>% 
+pinguinos[sample(nrow(pinguinos)), ] %>% 
   head() %>% 
   knitr::kable()
 ```
@@ -354,7 +354,7 @@ sample_knn <- function() {
   pinguino_knn_accuracy_cv[1]
 }
 
-samples <- 1000
+samples <- 10000
 
 f_start <- Sys.time()
 
@@ -385,10 +385,10 @@ A simple cross-validation algorithm was developed to determine the accuracy of b
 ```{r}
 tribble(
   ~model, ~accuracy,
-  "random forests", 0.98895,
-  "k-nearest neighbors", 0.98791
+  "random forests", 0.98865,
+  "k-nearest neighbors", 0.98788
 ) %>% 
   knitr::kable()
 ```
 
-The computational efficiency of each training each model and generating predictions was explored, and no significant difference was observed. (The k-nearest neighbors was 2.0% faster.) This exploration was not rigorous, however, and no effort was made to separate out the time each took to generate model predictions, which is probably the more meaningful metric.
+The computational efficiency of each training each model and generating predictions was explored, and no significant difference was observed. (The k-nearest neighbors algorithm was 2.2% faster.) This exploration was not rigorous, however, and no effort was made to separate out the time each took to generate model predictions, which is probably the more meaningful metric.
