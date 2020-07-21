@@ -87,13 +87,11 @@ confeds %>%
     geom_vline(
       xintercept = as.Date("1945-05-07", origin = "1970-01-01"),
       color = "lightgrey",
-      linetype = "dotted",
-      size = 1.0
+      linetype = "dashed"
     ) + # world war 2
     geom_col(
       width = 365,
-      fill = prim_color,
-      color = "black"
+      fill = prim_color
     ) +
     labs(
       subtitle = "Publicly-Supported Confederate Symbols by Year of Dedication",
@@ -146,7 +144,7 @@ states_map %>%
       aes(longitude, latitude),
       group = NA,
       color = prim_color,
-      size = 2
+      size = 1.5 
     )
 ```
 
@@ -176,7 +174,7 @@ confeds %>%
   group_by(category) %>%
   count(category) %>%
   ggplot(aes(n, fct_reorder(category, n))) +
-    geom_col(fill = prim_color, color = "black", width = 0.7) +
+    geom_col(fill = prim_color) +
     labs(
       subtitle = "Publicly-Supported Confederate Symbols by Type",
       x = "number of publicly-supported symbols", y = "category"
