@@ -8,15 +8,18 @@ The data is provided by the [Southern Poverty Law Center](https://www.splcenter.
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(
   echo = FALSE,
-  warning = FALSE,
-  fig.width = 10,
-  fig.height = 6.5
+  out.width = "100%",
+  fig.asp = .65,
+  fig.align = "center",
+  message = FALSE,
+  warning = FALSE
 )
 library(tidyverse)
 library(RColorBrewer)
 theme_set(theme_minimal())
 confeds <- readr::read_csv("confederate_symbols.csv")
 states <- readr::read_csv("../library/states.csv")
+prim_color <- "#e41a1c"
 ```
 
 ```{r tidy, include=FALSE}
@@ -54,7 +57,7 @@ The data contains **`r format(nrow(confeds),big.mark=",")`** publicly-supported 
 
 <br>
 
-```{r dedicated}
+```{r dedicated, out.width = "90%"}
 clabel_df <- tribble(
   ~x, ~y, ~label,
   as.Date("1865-05-09"), 37.5, "American Civil War\n(1861-1865)",
@@ -81,12 +84,19 @@ confeds %>%
       ymax = +Inf,
       alpha = 0.02, fill = "lightgrey"
     ) + # civil war
-    geom_vline(xintercept = as.Date("1945-05-07", origin = "1970-01-01"),
-               color = "lightgrey", linetype = "dashed"
+    geom_vline(
+      xintercept = as.Date("1945-05-07", origin = "1970-01-01"),
+      color = "lightgrey",
+      linetype = "dotted",
+      size = 1.0
     ) + # world war 2
-    geom_col(width = 365, alpha = 0.75, fill = "#e41a1c", color = "black") +
+    geom_col(
+      width = 365,
+      fill = prim_color,
+      color = "black"
+    ) +
     labs(
-      title = "Publicly-Supported Confederate Symbols by Year of Dedication",
+      subtitle = "Publicly-Supported Confederate Symbols by Year of Dedication",
       x = "year dedicated", y = "number of publicly-supported symbols"
     ) +
     scale_x_date(
@@ -110,10 +120,35 @@ confeds %>%
 <br>
 
 <center>
-<iframe width="560" height="560" src="https://www.youtube.com/embed/55ehKPUm7dc" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+<iframe width="500" height="500" src="https://www.youtube.com/embed/55ehKPUm7dc" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
 </center>
 
 <br>
+
+---
+
+```{r, out.width = "80%"}
+library(maps)
+
+states_map <- map_data("state")
+
+states_map %>% 
+  ggplot(aes(long, lat, group = group)) +
+    geom_path() +
+    coord_map("mercator") +
+    labs(
+      x = "",
+      y = ""
+    ) +
+    theme_void() +
+    geom_point(
+      data = confeds,
+      aes(longitude, latitude),
+      group = NA,
+      color = prim_color,
+      size = 2
+    )
+```
 
 ---
 
@@ -136,56 +171,14 @@ confeds %>%
 
 <br>
 
-```{r region}
-confeds %>%
-  group_by(region) %>%
-  summarise(count = n(), .groups = "drop") %>%
-  mutate(region = fct_reorder(region, desc(count))) %>%
-  ggplot(aes(region, count)) +
-    geom_col(aes(fill = region), color = "black", alpha = 0.75, width = 0.7, show.legend = FALSE) +
-    scale_y_continuous(labels = scales::comma) +
-    labs(
-      title = "Publicly-Supported Confederate Symbols by Region",
-      x = "region", y = "number of publicly-supported symbols"
-    ) +
-    scale_fill_brewer(palette = "Set1")
-```
-
-<br>
-
----
-
-<br>
-
-```{r state, fig.height=7.5}
-confeds %>%
-  group_by(state, region) %>%
-  count(state) %>%
-  ggplot(aes(n, fct_reorder(state, n))) +
-    geom_col(aes(fill = fct_reorder(region, desc(n))), color = "black", width = 0.7, alpha = 0.75) +
-    scale_fill_brewer(palette = "Set1") +
-    labs(
-      title = "Publicly-Supported Confederate Symbols by State",
-      x = "number of publicly-supported symbols", y = "state",
-      fill = "Region"
-    )
-```
-
-<br>
-
----
-
-<br>
-
-```{r type}
+```{r type, out.width = "80%"}
 confeds %>%
   group_by(category) %>%
   count(category) %>%
   ggplot(aes(n, fct_reorder(category, n))) +
-    geom_col(fill = "#e41a1c", color = "black", width = 0.7, alpha = 0.75) +
+    geom_col(fill = prim_color, color = "black", width = 0.7) +
     labs(
-      title = "Publicly-Supported Confederate Symbols by Type",
-      x = "number of publicly-supported symbols", y = "category / description"
+      subtitle = "Publicly-Supported Confederate Symbols by Type",
+      x = "number of publicly-supported symbols", y = "category"
     )
 ```
-
