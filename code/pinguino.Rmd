@@ -24,7 +24,7 @@ theme_set(theme_grey())
 ```{r data, include = FALSE}
 library(palmerpenguins)
 
-pinguinos <- penguins %>% 
+pinguinos <- penguins %>%
   rename(
     culmen_length = bill_length_mm,
     culmen_depth = bill_depth_mm,
@@ -44,8 +44,8 @@ https://github.com/allisonhorst/palmerpenguins
 The data set contains data (344 observations) for 3 different species of penguins, collected from 3 islands in the Palmer Archipelago, Antarctica.
 
 ```{r}
-pinguinos[sample(nrow(pinguinos)), ] %>% 
-  head() %>% 
+pinguinos[sample(nrow(pinguinos)), ] %>%
+  head() %>%
   knitr::kable()
 ```
 
@@ -58,7 +58,7 @@ pinguinos[sample(nrow(pinguinos)), ] %>%
 Let's try to visualize the data to get a sense of which predictors will be most useful.
 
 ```{r}
-pinguinos %>% 
+pinguinos %>%
   ggplot(aes(culmen_length, culmen_depth)) +
     geom_point(
       aes(
@@ -78,7 +78,7 @@ pinguinos %>%
 Surprisingly, we could make good predictions based on culmen length and depth alone based on the chart. Supervised learning algorithms (e.g., k-nearest neighbors (k-NN), decision tree, random forest) should be effective with this data set. It might also be interesting to implement a neural network classifier using this data.
 
 ```{r}
-pinguinos %>% 
+pinguinos %>%
   ggplot(aes(culmen_length, culmen_depth)) +
     geom_point(
       aes(
@@ -98,8 +98,8 @@ pinguinos %>%
 ```
 
 ```{r}
-pinguinos %>% 
-  filter(!is.na(body_mass)) %>% 
+pinguinos %>%
+  filter(!is.na(body_mass)) %>%
   ggplot(aes(species, body_mass)) +
     geom_violin(
       aes(
@@ -121,9 +121,9 @@ pinguinos %>%
 
 Adding body mass as a predictor appears to further distinguish the species.
 
-```{r, fig.asp = 2.0} 
-pinguinos %>% 
-  drop_na() %>% 
+```{r, fig.asp = 2.0}
+pinguinos %>%
+  drop_na() %>%
   ggplot(aes(culmen_length, culmen_depth)) +
     geom_point(
       aes(
@@ -145,7 +145,7 @@ pinguinos %>%
 The island feature appears to allow even stronger predictions. The Gentoo species is only found in the Biscoe Islands, and Chinstrap species are found only on Dream Island in the data.
 
 ```{r, out.width = "75%"}
-pinguinos %>% 
+pinguinos %>%
   ggplot(aes(flipper_length, body_mass)) +
     geom_point() +
     geom_smooth(
@@ -162,13 +162,13 @@ pinguinos %>%
 ```
 
 ```{r, include = FALSE}
-corr_flipper_to_mass <- pinguinos %>% 
-  select(flipper_length, body_mass) %>% 
-  filter(!is.na(flipper_length), !is.na(body_mass)) %>% 
+corr_flipper_to_mass <- pinguinos %>%
+  select(flipper_length, body_mass) %>%
+  filter(!is.na(flipper_length), !is.na(body_mass)) %>%
   cor() %>% .[[2]]
 ```
 
-The observed penguin flipper length and body mass show a significant positive correlation (**`r format(corr_flipper_to_mass, digits = 3)`**). For this reason, we've chosen to use one or the other as a predictor (not both).
+The observed penguin flipper length and body mass show a significant positive correlation (**`r format(corr_flipper_to_mass, digits = 3)`**). For this reason, I've chosen to use one or the other as a predictor (not both).
 
 <br>
 
@@ -182,21 +182,16 @@ The `tidymodels` package was used to perform predictive analysis using random fo
 
 ```{r pre-process, include = FALSE}
 # split training and test data
-pinguino_split <- pinguinos %>% 
-  filter(
-    !is.na(culmen_length),
-    !is.na(culmen_depth),
-    !is.na(body_mass),
-    !is.na(island),
-    !is.na(sex)
-  ) %>% 
+pinguino_split <- pinguinos %>%
+  select(-flipper_length) %>%
+  drop_na() %>%
   initial_split(
     prop = 0.8
   )
 
 # define pre-processing recipe steps and process training data
-pinguino_recipe <- training(pinguino_split) %>% 
-  recipe(species ~ culmen_length + culmen_depth + body_mass + island + sex) %>% 
+pinguino_recipe <- training(pinguino_split) %>%
+  recipe(species ~ .) %>%
   step_center(
     all_numeric(),
     -all_outcomes()
@@ -205,156 +200,147 @@ pinguino_recipe <- training(pinguino_split) %>%
     all_numeric(),
     -all_outcomes()
   ) %>% # normalize predictors to a standard deviation of one
+  step_dummy(all_nominal(), -species) %>% # use one-hot encoding for categorical predictors
   prep()
 
 # perform same pre-processing steps on test data
-pinguino_testing <- pinguino_recipe %>% 
+pinguino_testing <- pinguino_recipe %>%
   bake(testing(pinguino_split))
 
 # extract training data
 pinguino_training <- juice(pinguino_recipe)
 ```
 
-The data has been split into training and test data sets using the `rsample` data sampling package with 80% of the observations used for training the model. All numeric predictors have been normalized to a mean of zero and standard deviation of one using the `recipe` package.
+The data has been split into training and test data sets using the `rsample` data sampling package with 80% of the observations used for training the model. The predictors used were **culmen depth**, **culmen length**, **body mass**, **island**, and **sex** (3 numeric and 2 categorical). All numeric predictors have been normalized to a mean of zero and standard deviation of one using the `recipe` package. The categorical predictors have been converted to dummy variables using one-hot encoding.
 
 <br>
 
 #### Random Forests
 
 ```{r train_random_forest, include = FALSE}
-pinguino_forest <- rand_forest(trees = 200, mode = "classification") %>% 
-  set_engine("randomForest") %>% 
-  fit(species ~ culmen_length + culmen_depth + body_mass + island + sex, data = pinguino_training)
+pinguino_forest <- rand_forest(trees = 200, mode = "classification") %>%
+  set_engine("randomForest") %>%
+  fit(species ~ ., data = pinguino_training)
 ```
 
 ```{r predict_random_forest, include = FALSE}
-pinguino_forest_accuracy <- pinguino_forest %>% 
-  predict(pinguino_testing) %>% 
-  bind_cols(pinguino_testing) %>% 
-  metrics(truth = species, estimate = .pred_class) %$% 
+pinguino_forest_accuracy <- pinguino_forest %>%
+  predict(pinguino_testing) %>%
+  bind_cols(pinguino_testing) %>%
+  metrics(truth = species, estimate = .pred_class) %$%
   .estimate
 ```
 
-A **random forests** classification algorithm (`randomForest` package) was trained on the test data using the `parsnip` package. The predictors used were **culmen depth**, **culmen length**, **body mass**, **island**, and **sex** (3 numeric and 2 categorical). The number of trees was set to 200.
+A **random forests** classification algorithm (`randomForest` package) was trained on the test data using the `parsnip` package. The number of trees was set to 200.
 
 The trained model was then used to generate predictions from the sampled test data, and the accuracy of the predictions was calculated using the `yardstick` package for initial evaluation. The calculated accuracy was used to refine the model, as necessary.
 
 ```{r forest_confusion_matrix, eval = FALSE, out.width = "70%"}
-cm <- pinguino_forest %>% 
-  predict(pinguino_testing) %>% 
-  bind_cols(pinguino_testing) %>% 
+cm <- pinguino_forest %>%
+  predict(pinguino_testing) %>%
+  bind_cols(pinguino_testing) %>%
   conf_mat(truth = species, estimate = .pred_class)
 
 autoplot(cm, type = "heatmap")
-``` 
+```
 
 <br>
 
 #### k-Nearest Neighbors
 
 ```{r train_knn, include = FALSE}
-pinguino_knn <- nearest_neighbor(mode = "classification", dist_power = 2, weight_func = "optimal") %>% 
-  set_engine("kknn") %>% 
-  fit(species ~ culmen_length + culmen_depth + body_mass, data = pinguino_training)
+pinguino_knn <- nearest_neighbor(mode = "classification", dist_power = 2, weight_func = "optimal") %>%
+  set_engine("kknn") %>%
+  fit(species ~ ., data = pinguino_training)
 ```
 
 ```{r predict_knn, include = FALSE}
-pinguino_knn_accuracy <- pinguino_knn %>% 
-  predict(pinguino_testing) %>% 
-  bind_cols(pinguino_testing) %>% 
-  metrics(truth = species, estimate = .pred_class) %$% 
+pinguino_knn_accuracy <- pinguino_knn %>%
+  predict(pinguino_testing) %>%
+  bind_cols(pinguino_testing) %>%
+  metrics(truth = species, estimate = .pred_class) %$%
   .estimate
 ```
 
-A **weighted k-nearest neighbors** classification algorithm (`kknn` package) was trained on the test data using the `parsnip` package. The three numeric predictors (**culmen depth**, **culmen length**, and **body mass**) were used, and Euclidean distance was used for distance calculation. The package default of 5 nearest neighbors was left unchanged. The "optimal" kernel weight function was used.
+A **weighted k-nearest neighbors** classification algorithm (`kknn` package) was trained on the test data using the `parsnip` package. Euclidean distance was used for distance calculation. The package default of 5 nearest neighbors was left unchanged. The "optimal" kernel weight function was used.
 
 As with the random forests model, the trained model was used to generate predictions from the sampled test data, and the accuracy of the predictions was calculated using the `yardstick` package.
 
 ```{r knn_confusion, include = FALSE, out.width = "70%"}
-cm_knn <- pinguino_knn %>% 
-  predict(pinguino_testing) %>% 
-  bind_cols(pinguino_testing) %>% 
+cm_knn <- pinguino_knn %>%
+  predict(pinguino_testing) %>%
+  bind_cols(pinguino_testing) %>%
   conf_mat(truth = species, estimate = .pred_class)
 
 autoplot(cm_knn, type = "heatmap")
-``` 
+```
 
 ```{r cross-validation, eval = FALSE}
 sample_forest <- function() {
   # re-split training and test data
-  pinguino_split_cv <- pinguinos %>% 
-    filter(
-      !is.na(culmen_length),
-      !is.na(culmen_depth),
-      !is.na(body_mass),
-      !is.na(island),
-      !is.na(sex)
-    ) %>% 
+  pinguino_split_cv <- pinguinos %>%
+    select(-flipper_length) %>%
+    drop_na() %>%
     initial_split(
       prop = 0.8
     )
-  
+
   # re-bake training and test data
-  pinguino_training_cv <- pinguino_recipe %>% 
+  pinguino_training_cv <- pinguino_recipe %>%
     bake(training(pinguino_split_cv))
-  
-  pinguino_testing_cv <- pinguino_recipe %>% 
+
+  pinguino_testing_cv <- pinguino_recipe %>%
     bake(testing(pinguino_split_cv))
-  
+
   # train model
-  pinguino_forest_cv <- rand_forest(trees = 200, mode = "classification") %>% 
-    set_engine("randomForest") %>% 
-    fit(species ~ culmen_length + culmen_depth + body_mass + island + sex, data = pinguino_training_cv)
-  
+  pinguino_forest_cv <- rand_forest(trees = 200, mode = "classification") %>%
+    set_engine("randomForest") %>%
+    fit(species ~ ., data = pinguino_training_cv)
+
   # make predictions
-  pinguino_forest_accuracy_cv <- pinguino_forest_cv %>% 
-    predict(pinguino_testing_cv) %>% 
-    bind_cols(pinguino_testing_cv) %>% 
-    metrics(truth = species, estimate = .pred_class) %$% 
+  pinguino_forest_accuracy_cv <- pinguino_forest_cv %>%
+    predict(pinguino_testing_cv) %>%
+    bind_cols(pinguino_testing_cv) %>%
+    metrics(truth = species, estimate = .pred_class) %$%
     .estimate
-  
+
   # return accuracy
   pinguino_forest_accuracy_cv[1]
 }
 
 sample_knn <- function() {
   # re-split training and test data
-  pinguino_split_cv <- pinguinos %>% 
-    filter(
-      !is.na(culmen_length),
-      !is.na(culmen_depth),
-      !is.na(body_mass),
-      !is.na(island),
-      !is.na(sex)
-    ) %>% 
+  pinguino_split_cv <- pinguinos %>%
+    select(-flipper_length) %>%
+    drop_na() %>%
     initial_split(
       prop = 0.8
     )
-  
+
   # re-bake training and test data
-  pinguino_training_cv <- pinguino_recipe %>% 
+  pinguino_training_cv <- pinguino_recipe %>%
     bake(training(pinguino_split_cv))
-  
-  pinguino_testing_cv <- pinguino_recipe %>% 
+
+  pinguino_testing_cv <- pinguino_recipe %>%
     bake(testing(pinguino_split_cv))
-    
+
   # train model
-  pinguino_knn_cv <- nearest_neighbor(mode = "classification", dist_power = 2, weight_func = "optimal") %>% 
-    set_engine("kknn") %>% 
-    fit(species ~ culmen_length + culmen_depth + body_mass, data = pinguino_training_cv)
-  
+  pinguino_knn_cv <- nearest_neighbor(mode = "classification", dist_power = 2, weight_func = "optimal") %>%
+    set_engine("kknn") %>%
+    fit(species ~ ., data = pinguino_training_cv)
+
   # make predictions
-  pinguino_knn_accuracy_cv <- pinguino_knn_cv %>% 
-    predict(pinguino_testing_cv) %>% 
-    bind_cols(pinguino_testing_cv) %>% 
-    metrics(truth = species, estimate = .pred_class) %$% 
+  pinguino_knn_accuracy_cv <- pinguino_knn_cv %>%
+    predict(pinguino_testing_cv) %>%
+    bind_cols(pinguino_testing_cv) %>%
+    metrics(truth = species, estimate = .pred_class) %$%
     .estimate
-  
+
   # return accuracy
   pinguino_knn_accuracy_cv[1]
 }
 
-samples <- 10000
+samples <- 1000
 
 f_start <- Sys.time()
 
@@ -380,15 +366,15 @@ overall_knn_accuracy <- mean(knn_results)
 
 ### Model Comparison
 
-A simple cross-validation algorithm was developed to determine the accuracy of both models. Both algorithms performed very well with this data set. The performance of the random forests and k-nearest neighbors models is nearly identical. The random forests model consistently performs ever so slightly better (see table below). This stands to reason since the random forests model makes use of two additional categorical predictors, compared with the k-nearest neighbors model.
+Simple cross-validation was performed to determine the accuracy of both models. Both algorithms performed very well (**99% accuracy**) with this data set. The performance of the random forests and k-nearest neighbors models is nearly identical when both models make use of all of the selected predictors with the hyperparameters used for this analysis.
 
 ```{r}
 tribble(
   ~model, ~accuracy,
-  "random forests", 0.98865,
-  "k-nearest neighbors", 0.98788
-) %>% 
+  "random forests", 0.98817,
+  "k-nearest neighbors", 0.99053
+) %>%
   knitr::kable()
 ```
 
-The computational efficiency of each training each model and generating predictions was explored, and no significant difference was observed. (The k-nearest neighbors algorithm was 2.2% faster.) This exploration was not rigorous, however, and no effort was made to separate out the time each took to generate model predictions, which is probably the more meaningful metric.
+The computational efficiency of each training each model and generating predictions was explored, and no significant difference was observed. (The k-nearest neighbors algorithm was 5.37% faster.) This exploration was not rigorous, however, and no effort was made to separate out the time each took to generate model predictions, which is probably the more meaningful metric.
