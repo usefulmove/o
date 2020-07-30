@@ -62,6 +62,7 @@ The risk assessment methodology used in this analysis has not been fully validat
 The predictive analytics model is built with the open-source [R programming language](https://en.wikipedia.org/wiki/R_(programming_language)) using the [Tidyverse](https://www.tidyverse.org/) family of packages.
 
 ```{r setup, include = FALSE}
+
 knitr::opts_chunk$set(
   echo = FALSE,
   out.width = "100%",
@@ -87,9 +88,11 @@ prim_color <- pal_jco()(10)[1]
 alt_color <- pal_jco()(10)[5]
 
 theme_set(theme_minimal())
+
 ```
 
 ```{r csse_tidy}
+
 # import data
 global_cases <- read_csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv")
 
@@ -128,6 +131,7 @@ eu_combined_cases <- eu_cases %>%
 ```
 
 ```{r nytimes_tidy, include = FALSE}
+
 #data_path <- "../../../covid-19-data/"
 data_path <- "https://raw.githubusercontent.com/nytimes/covid-19-data/master/"
 
@@ -140,6 +144,7 @@ states <- read_csv(str_glue("{data_path}us-states.csv"))
 
 # counties
 counties <- read_csv(str_glue("{data_path}us-counties.csv"))
+
 ```
 
 ```{r utensils, include = FALSE}
@@ -506,9 +511,14 @@ calculate_risk_prediction_cnty <- function(cnty_name, state_name) {
   return(0)
 }
 calculate_risk_prediction_cnty_c <- compiler::cmpfun(calculate_risk_prediction_cnty)
+
 ```
 
 ```{r global, include = FALSE}
+
+# enable parallel backend
+doParallel::registerDoParallel()
+
 # global analysis
 
 global_risk_predictions <- global_cases %>% distinct(country)
@@ -560,9 +570,11 @@ gdp_join <- gdp %>%  # match country names where different prior to join
 global_predictions_gdp <- global_risk_predictions %>%
   left_join(gdp_join, by = "country") %>%
   filter(!is.na(gdp_ppp_pcap))
+
 ```
 
 ```{r us, include = FALSE}
+
 # u.s. analysis
 
 us <- us %>%
@@ -573,9 +585,11 @@ us <- us %>%
 
 p_us_total <- covid_total()
 p_us <- covid()
+
 ```
 
 ```{r states, include = FALSE}
+
 # state analysis (u.s.)
 
 # calculate state risk predictions
@@ -593,9 +607,11 @@ count_alarm_states <- sum(state_risk_predictions$risk_prediction >= state_alarm)
 state_df <- state_risk_predictions %>% # highest risk predictions
   filter(risk_prediction > 5) %>%
   top_n(max(c(min(c(count_alarm_states,20)), 15)), risk_prediction)
+
 ```
 
 ```{r counties, include = FALSE}
+
 # county analysis (u.s.)
 
 # calculate county risk predictions
@@ -620,6 +636,7 @@ cnty_table <- cnty_risk_predictions %>% # highest risk predictions
     county = as.factor(county),
     state = as.factor(state)
   )
+
 ```
 
 <br><br>
@@ -631,6 +648,7 @@ cnty_table <- cnty_risk_predictions %>% # highest risk predictions
 ### World
 
 ```{r world_risk, include = FALSE}
+
 global_risk_predictions %>%
   top_n(5, risk_prediction) %>%
   ggplot(aes(fct_reorder(country, desc(risk_prediction)), risk_prediction)) +
@@ -645,9 +663,11 @@ global_risk_predictions %>%
       y = expression(rho)
     ) +
     scale_y_continuous(labels = scales::comma)
+
 ```
 
 ```{r, world_risk_gdp, out.width = "95%"}
+
 global_predictions_gdp %>%
   mutate(country = recode(country,
                           "US" = "United States"
@@ -695,10 +715,12 @@ There are `r nrow(global_risk_predictions)` countries represented in the Johns H
 ### U.S.
 
 ```{r country_summary, include = FALSE}
+
 total_us_cases <- us_live$cases[nrow(us_live)]
 current_us_ncases <- us$ncases[nrow(us)]
 total_us_deaths <- us_live$deaths[nrow(us_live)]
 current_us_ndeaths <- us$ndeaths[nrow(us)]
+
 ```
 
 There have been `r format( total_us_cases, big.mark="," )` total COVID-19 cases (`r format( current_us_ncases, big.mark="," )` new cases per day) and `r format( total_us_deaths, big.mark="," )` deaths (`r format( current_us_ndeaths, big.mark="," )` new deaths per day) in the United States from `r format(min(us$date), '%B %d, %Y')` to `r format(max(us$date), '%B %d, %Y')`.
@@ -706,13 +728,17 @@ There have been `r format( total_us_cases, big.mark="," )` total COVID-19 cases 
 <br><br>
 
 ```{r country_chart_total, out.width = "80%"}
+
 p_us_total
+
 ```
 
 <br><br>
 
 ```{r country_chart_change, out.width = "80%"}
+
 p_us
+
 ```
 
 <br><br>
@@ -724,7 +750,8 @@ The aggregated data from Johns Hopkins University CSSE was used to calculate a c
 <br>
 
 ```{r us_eu_comparison, out.width = "95%"}
-eu_color <- alt_color  #"#e06f01"
+
+eu_color <- "#fdb980"
 
 us %>%
   ggplot(mapping = aes(x = date)) +
@@ -736,7 +763,6 @@ us %>%
       color = eu_color,
       method = "gam", formula = y ~ s(x, bs = "cs"), level = 0.9,
       size = 0.8,
-      alpha = 0.6,
       na.rm = TRUE,
       show.legend = FALSE
     ) +
@@ -745,7 +771,7 @@ us %>%
       aes(date, ncases),
       color = eu_color,
       size = 1.0,
-      alpha = 0.6,
+      alpha = 0.8,
       na.rm = TRUE,
       show.legend = FALSE
     ) +
@@ -753,10 +779,9 @@ us %>%
       geom = "text",
       label = "European Union",
       x = as.Date("2020-06-16"),
-      y = 8800,
+      y = 9400,
       color = eu_color,
-      alpha = 0.8,
-      size = 4.0
+      size = 4.3
     ) +
     # United States
     geom_smooth(
@@ -779,7 +804,7 @@ us %>%
     annotate(
       geom = "text",
       label = "United States",
-      x = as.Date("2020-06-09"),
+      x = as.Date("2020-06-08"),
       y = 37500,
       color = prim_color,
       size = 4.5
@@ -811,6 +836,7 @@ us %>%
 ### Individual States
 
 ```{r state_predictions, out.width = "90%"}
+
 state_df %>%
   ggplot(
     aes(x = reorder(state, risk_prediction), y = risk_prediction)) +
@@ -834,25 +860,32 @@ state_df %>%
       fill = ""
     ) +
     scale_fill_manual(values = c(prim_color, alt_color))
+
 ```
 
-A total of `r count_alarm_states` states currently have risk predictions above 25.
+`r count_alarm_states` states currently have risk predictions above 25.
 
 ```{r state_charts, include = FALSE}
+
 p1 <- covid("Florida")
-p2 <- covid("California")
-p3 <- covid("Texas")
-p4 <- covid("Arizona")
-p5 <- covid("Louisiana")
-p6 <- covid("Georgia")
-p7 <- covid("Alabama")
-p8 <- covid("New York")
+p2 <- covid("Texas")
+p3 <- covid("California")
+p4 <- covid("New York")
+p5 <- covid("Georgia")
+p6 <- covid("New Jersey")
+p7 <- covid("Louisiana")
+p8 <- covid("Tennessee")
+p9 <- covid("Missouri")
+p10 <- covid("Oklahoma")
+
 ```
 
 <br><br>
 
-```{r disp_state_charts, fig.asp=1.7}
-grid.arrange(p1, p2, p3, p4, p5, p6, p7, p8, nrow = 4)
+```{r disp_state_charts, fig.asp=2.1}
+
+grid.arrange(p1, p2, p3, p4, p5, p6, p7, p8, p9, p10, ncol = 2)
+
 ```
 
 <br>
@@ -864,6 +897,7 @@ grid.arrange(p1, p2, p3, p4, p5, p6, p7, p8, nrow = 4)
 ### Counties
 
 ```{r county_predictions}
+
 base_palette_len <- 10
 get_palette <- colorRampPalette(pal_jco()(base_palette_len))
 
@@ -888,6 +922,7 @@ cnty_table %>%
       fill = "state"
     ) +
     coord_flip()
+
 ```
 
 There are `r format(nrow(cnty_risk_predictions), big.mark = ",")` U.S. counties represented in the New York Times data set.
@@ -921,6 +956,7 @@ The data used for the analysis below is current through `r format(max(community_
 <br>
 
 ```{r community_mobility}
+
 df_highlights <- community_mobility %>%
   filter(
     is.na(sub_region_1),
@@ -1057,6 +1093,7 @@ us_mobility_pivot %>%
       color = "activity"
     ) +
     scale_color_jco()
+
 ```
 
 **Note:**  The dotted grey line on each of the mobility charts represents the date (March 13, 2020) on which the U.S. declared a [National Emergency Concerning the Novel Coronavirus Disease (COVID-19) Outbreak](https://www.whitehouse.gov/presidential-actions/proclamation-declaring-national-emergency-concerning-novel-coronavirus-disease-covid-19-outbreak/).
@@ -1072,6 +1109,7 @@ us_mobility_pivot %>%
 <br>
 
 ```{r state_mobility}
+
 us_mobility_pivot %>%
   filter(
     is.na(cnty),
@@ -1138,6 +1176,7 @@ Analysis of the New York Times reported death data for the U.S. reveals a repeat
 <br>
 
 ```{r day_of_week, out.width = "65%"}
+
 us %>%
   mutate(day = wday(date, label = TRUE)) %>%
   group_by(day) %>%
@@ -1160,5 +1199,27 @@ us %>%
 ```
 
 ```{r, include = FALSE}
+
 beepr::beep(2)
+
 ```
+
+```{r, eval = FALSE}
+
+library(maps)
+
+srp <- state_risk_predictions %>% 
+  mutate(
+    state = tolower(state),
+    risk_prediction = ifelse(risk_prediction < 0, 0, risk_prediction)
+  )
+
+states_map <- map_data("state")
+
+states_map %>% 
+  left_join(srp, by = c("region" = "state")) %>% 
+  ggplot(aes(long, lat, group = group, fill = sqrt(risk_prediction))) +
+    geom_polygon(color = "black", show.legend = FALSE) +
+    scale_fill_gradient2(low = "white", high = "darkred")
+```
+
