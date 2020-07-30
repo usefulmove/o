@@ -17,6 +17,7 @@ knitr::opts_chunk$set(
 library(tidymodels)
 library(magrittr)
 library(ggsci)
+library(stringr)
 
 theme_set(theme_grey())
 ```
@@ -32,6 +33,12 @@ pinguinos <- penguins %>%
     body_mass = body_mass_g
   )
 ```
+
+<br>
+
+### Introduction
+
+Three different machine learning models (random forest, k-nearest neighbors, and gradient boost) were used to attempt to predict species of penguins from data collected on body measurements. Once each model was fit to training data, the relevant hyperparameters were tuned, and the predictions from the finalized models were compared.
 
 <br>
 
@@ -53,7 +60,7 @@ pinguinos[sample(nrow(pinguinos)), ] %>%
 
 ### Exploratory Analysis
 
-**Culmen length**, **culmen depth**, **flipper length**, **body mass**, **sex**, and **island** (6) can be used as predictors for species.
+**Culmen length**, **culmen depth**, **flipper length**, **body mass**, **sex**, and **island** (6) could be used as predictors for species.
 
 Let's try to visualize the data to get a sense of which predictors will be most useful.
 
@@ -174,7 +181,7 @@ The observed penguin flipper length and body mass show a significant positive co
 
 ### Supervised Learning Predictive Modeling
 
-The `tidymodels` package was used to perform predictive analysis using random forests and k-nearest neighbors supervised machine learning classification algorithms.
+The `tidymodels` package was used to perform predictive analysis using random forest and k-nearest neighbors supervised machine learning classification algorithms.
 
 <br>
 
@@ -215,10 +222,14 @@ The data has been split into training and test data sets using the `rsample` dat
 
 <br>
 
-#### Random Forests
+#### Random Forest
 
 ```{r train_random_forest, include = FALSE}
-pinguino_forest <- rand_forest(trees = 200, mode = "classification") %>%
+pinguino_forest <- rand_forest(
+                     trees = 200,
+                     mtry = 3,
+                     mode = "classification"
+                   ) %>%
   set_engine("randomForest") %>%
   fit(species ~ ., data = pinguino_training)
 ```
@@ -231,11 +242,13 @@ pinguino_forest_accuracy <- pinguino_forest %>%
   .estimate
 ```
 
-A **random forests** classification algorithm (`randomForest` package) was trained on the test data using the `parsnip` package. The number of trees was set to 200.
+A **random decision forest** classification algorithm (`randomForest` package) was trained on the test data using the `parsnip` package. The number of trees was set to 200, and the size of the random subset of predictors to consider at each split was set to 3.
 
 The trained model was then used to generate predictions from the sampled test data, and the accuracy of the predictions was calculated using the `yardstick` package for initial evaluation. The calculated accuracy was used to refine the model, as necessary.
 
-```{r forest_confusion_matrix, eval = FALSE, out.width = "70%"}
+An example confusion matrix is shown below.
+
+```{r forest_confusion_matrix, out.width = "70%"}
 cm <- pinguino_forest %>%
   predict(pinguino_testing) %>%
   bind_cols(pinguino_testing) %>%
@@ -249,7 +262,12 @@ autoplot(cm, type = "heatmap")
 #### k-Nearest Neighbors
 
 ```{r train_knn, include = FALSE}
-pinguino_knn <- nearest_neighbor(mode = "classification", dist_power = 2, weight_func = "optimal") %>%
+pinguino_knn <- nearest_neighbor(
+                  neighbors = 5,
+                  mode = "classification",
+                  dist_power = 2,
+                  weight_func = "optimal"
+                ) %>%
   set_engine("kknn") %>%
   fit(species ~ ., data = pinguino_training)
 ```
@@ -262,11 +280,13 @@ pinguino_knn_accuracy <- pinguino_knn %>%
   .estimate
 ```
 
-A **weighted k-nearest neighbors** classification algorithm (`kknn` package) was trained on the test data using the `parsnip` package. Euclidean distance was used for distance calculation. The package default of 5 nearest neighbors was left unchanged. The "optimal" kernel weight function was used.
+A **weighted k-nearest neighbors** classification algorithm (`kknn` package) was trained on the test data using the `parsnip` package. Euclidean distance was used for distance calculation, and the use of 5 nearest neighbors (k) was set. The "optimal" kernel weight function was used.
 
-As with the random forests model, the trained model was used to generate predictions from the sampled test data, and the accuracy of the predictions was calculated using the `yardstick` package.
+As with the random forest model, the trained model was used to generate predictions from the sampled test data, and the accuracy of the predictions was calculated using the `yardstick` package.
 
-```{r knn_confusion, include = FALSE, out.width = "70%"}
+An example confusion matrix is shown below.
+
+```{r knn_confusion, out.width = "70%"}
 cm_knn <- pinguino_knn %>%
   predict(pinguino_testing) %>%
   bind_cols(pinguino_testing) %>%
@@ -274,6 +294,46 @@ cm_knn <- pinguino_knn %>%
 
 autoplot(cm_knn, type = "heatmap")
 ```
+
+<br>
+
+#### Gradient Boost
+
+```{r train_gradient_boost, include = FALSE}
+pinguino_gboost <- boost_tree(
+                     trees = 200,
+                     mode = "classification",
+                     learn_rate = 0.3,
+                     tree_depth = 6
+                   ) %>%
+  set_engine("xgboost") %>%
+  fit(species ~ ., data = pinguino_training)
+```
+
+```{r predict_gradient_boost, include = FALSE}
+pinguino_gboost_accuracy <- pinguino_gboost %>%
+  predict(pinguino_testing) %>%
+  bind_cols(pinguino_testing) %>%
+  metrics(truth = species, estimate = .pred_class) %$%
+  .estimate
+```
+
+A **gradient boost** classification algorithm (`xgboost` package) was also trained on the test data using the `parsnip` package. The number of trees for the gradient boost model was identical to that used for the random forest model (200). A learning rate of 0.3 was used, and a maximum tree depth of 6 was chosen.
+
+The trained model was then used to generate predictions from the sampled test data, and the accuracy of the predictions was calculated using the `yardstick` package.
+
+An example confusion matrix is shown below.
+
+```{r gboost_confusion_matrix, out.width = "70%"}
+cm <- pinguino_gboost %>%
+  predict(pinguino_testing) %>%
+  bind_cols(pinguino_testing) %>%
+  conf_mat(truth = species, estimate = .pred_class)
+
+autoplot(cm, type = "heatmap")
+```
+
+<br>
 
 ```{r cross-validation, eval = FALSE}
 sample_forest <- function() {
@@ -293,7 +353,11 @@ sample_forest <- function() {
     bake(testing(pinguino_split_cv))
 
   # train model
-  pinguino_forest_cv <- rand_forest(trees = 200, mode = "classification") %>%
+  pinguino_forest_cv <- rand_forest(
+                          trees = 200,
+                          mtry = 3,
+                          mode = "classification"
+                        ) %>% 
     set_engine("randomForest") %>%
     fit(species ~ ., data = pinguino_training_cv)
 
@@ -325,7 +389,12 @@ sample_knn <- function() {
     bake(testing(pinguino_split_cv))
 
   # train model
-  pinguino_knn_cv <- nearest_neighbor(mode = "classification", dist_power = 2, weight_func = "optimal") %>%
+  pinguino_knn_cv <- nearest_neighbor(
+                       neighbors = 5,
+                       mode = "classification",
+                       dist_power = 2,
+                       weight_func = "optimal"
+                     ) %>%
     set_engine("kknn") %>%
     fit(species ~ ., data = pinguino_training_cv)
 
@@ -340,41 +409,104 @@ sample_knn <- function() {
   pinguino_knn_accuracy_cv[1]
 }
 
-samples <- 1000
+sample_gboost <- function() {
+  # re-split training and test data
+  pinguino_split_cv <- pinguinos %>%
+    select(-flipper_length) %>%
+    drop_na() %>%
+    initial_split(
+      prop = 0.8
+    )
 
-f_start <- Sys.time()
+  # re-bake training and test data
+  pinguino_training_cv <- pinguino_recipe %>%
+    bake(training(pinguino_split_cv))
 
+  pinguino_testing_cv <- pinguino_recipe %>%
+    bake(testing(pinguino_split_cv))
+
+  # train model
+  pinguino_gboost_cv <- boost_tree(
+                          trees = 200,
+                          mode = "classification",
+                          learn_rate = 0.3,
+                          tree_depth = 6
+                        ) %>%
+    set_engine("xgboost") %>%
+    fit(species ~ ., data = pinguino_training_cv)
+
+  # make predictions
+  pinguino_gboost_accuracy_cv <- pinguino_gboost_cv %>%
+    predict(pinguino_testing_cv) %>%
+    bind_cols(pinguino_testing_cv) %>%
+    metrics(truth = species, estimate = .pred_class) %$%
+    .estimate
+
+  # return accuracy
+  pinguino_gboost_accuracy_cv[1]
+}
+
+samples <- 100
+
+time_1 <- Sys.time()
+
+# random forest
 forest_results <- vector(mode = "numeric", length = samples)
 for (i in 1:samples) {
   forest_results[i] <- sample_forest()
 }
 
-k_start <- Sys.time()
+time_2 <- Sys.time()
 
+# k-nearest neighbors
 knn_results <- vector(mode = "numeric", length = samples)
 for (i in 1:samples) {
   knn_results[i] <- sample_knn()
 }
 
-k_end <- Sys.time()
+time_3 <- Sys.time()
+
+# gradient boost
+gboost_results <- vector(mode = "numeric", length = samples)
+for (i in 1:samples) {
+  gboost_results[i] <- sample_gboost()
+}
+
+time_4 <- Sys.time()
+
+beepr::beep()
 
 overall_forest_accuracy <- mean(forest_results)
 overall_knn_accuracy <- mean(knn_results)
+overall_gboost_accuracy <- mean(gboost_results)
+
+print(str_glue("cross-validation results (n = {samples})"))
+print(str_glue(""))
+print(str_glue("accuracy:"))
+print(str_glue("random forest = {format(overall_forest_accuracy, digits = 5)}"))
+print(str_glue("k-nearest neighbors = {format(overall_knn_accuracy, digits = 5)}"))
+print(str_glue("gradient boost = {format(overall_gboost_accuracy, digits = 5)}"))
+print(str_glue(""))
+print(str_glue("timing:"))
+print(str_glue("random forest = {format(time_2 - time_1, digits = 5)}"))
+print(str_glue("k-nearest neighbors = {format(time_3 - time_2, digits = 5)}"))
+print(str_glue("gradient boost = {format(time_4 - time_3, digits = 5)}"))
 ```
 
 <br>
 
-### Model Comparison
+### Detailed Model Comparison
 
-Simple cross-validation was performed to determine the accuracy of both models. Both algorithms performed very well (**99% accuracy**) with this data set. The performance of the random forests and k-nearest neighbors models is nearly identical when both models make use of all of the selected predictors with the hyperparameters used for this analysis.
+Simple cross-validation was performed to determine the accuracy of both models. Each of the three algorithms performed very well (**~99% accuracy** for each) with this data set. The performance is nearly identical when the models make use of all of the selected predictors with the hyperparameters chosen for this analysis, although the random forest model consistently falls ever so slightly behind the other two.
 
 ```{r}
 tribble(
   ~model, ~accuracy,
-  "random forests", 0.98817,
-  "k-nearest neighbors", 0.99053
+  "random forest", 0.98606,
+  "k-nearest neighbors", 0.99030,
+  "gradient boost", 0.99121
 ) %>%
   knitr::kable()
 ```
 
-The computational efficiency of each training each model and generating predictions was explored, and no significant difference was observed. (The k-nearest neighbors algorithm was 5.37% faster.) This exploration was not rigorous, however, and no effort was made to separate out the time each took to generate model predictions, which is probably the more meaningful metric.
+The computational efficiency of each training each model and generating predictions was briefly explored. No significant difference was observed between the k-nearest neighbors and random forest algorithms. Overall, k-nearest neighbors ran the fastest. The random forest algorithm was 4.80% slower. Gradient boost was the slowest of the three (39.5% slower than k-nearest neighbors). This exploration was not rigorous, however, and no effort was made to separate out the time each took to generate model predictions, which is probably the more meaningful metric.
