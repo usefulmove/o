@@ -979,12 +979,12 @@ df_highlights <- community_mobility %>%
     is.na(sub_region_2),
     country_region %in% c(
                           "United States",
-                          "Canada",
                           "Italy",
                           "Spain",
                           "United Kingdom",
                           "France",
-                          "Sweden"
+                          "Sweden",
+                          "Ireland"
                           )
   ) %>%
   rename(country = country_region)
@@ -994,10 +994,7 @@ p <- community_mobility %>%
   filter(
     is.na(sub_region_1),
     is.na(sub_region_2),
-    continent %in% c(
-                     "Europe",
-                     "North America"
-                     )
+    country_region %in% c(eu_countries$Country, "Czechia")
   ) %>%
   rename(country = country_region) %>%
   ggplot(aes(date, retail_and_recreation_percent_change_from_baseline, group = country)) +
@@ -1023,7 +1020,7 @@ p <- community_mobility %>%
     ) +
     scale_y_continuous(labels = scales::label_percent(scale = 1)) +
     labs(
-      title = "Community Mobility - North America and Europe",
+      title = "Community Mobility: United States and European Union",
       subtitle = "retail and recreation",
       x = "",
       y = "change from baseline",
