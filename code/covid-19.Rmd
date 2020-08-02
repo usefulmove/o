@@ -1215,10 +1215,10 @@ states_map %>%
   left_join(state_mask_use, by = c("region" = "state_lower")) %>%
   ggplot(aes(long, lat, group = group, fill = (1 - score) - (1 - max(score)))) +
     geom_polygon(color = "black", show.legend = FALSE) +
-    coord_map("mercator") +
+    coord_map("albers", lat0=30, lat1=40) +
     scale_fill_gradient2(high = "#b3040a") +
     labs(
-      subtitle = "States with Lowest Community Mask Usage",
+      subtitle = "States with Lowest Community Mask Usage (July 14, 2020)",
       x = "longitude",
       y = "latitude",
       caption = "Red indicates lowest mask usage."
@@ -1230,10 +1230,10 @@ counties_map %>%
   left_join(cnty_mask_use, by = c("region" = "state_lower", "subregion" = "county_lower")) %>%
   ggplot(aes(long, lat, group = group, fill = 1 - score)) +
     geom_polygon(color = "white", show.legend = FALSE) +
-    coord_map("mercator") +
+    coord_map("albers", lat0=30, lat1=40) +
     scale_fill_gradient2(high = "#b3040a") +
     labs(
-      subtitle = "Counties with Lowest Community Mask Usage",
+      subtitle = "Counties with Lowest Community Mask Usage (July 14, 2020)",
       x = "longitude",
       y = "latitude",
       caption = "Red indicates lowest mask usage. Grey indicates lack of mask usage data."
@@ -1345,7 +1345,7 @@ states_map %>%
   left_join(srp, by = c("region" = "state")) %>%
   ggplot(aes(long, lat, group = group, fill = sqrt(risk_prediction))) +
     geom_polygon(color = "black", show.legend = FALSE) +
-    coord_map("mercator") +
+    coord_map("albers", lat0=30, lat1=40) +
     scale_fill_gradient2(low = "white", high = "darkred")
 
 ```
