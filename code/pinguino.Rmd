@@ -177,11 +177,13 @@ corr_flipper_to_mass <- pinguinos %>%
 
 The observed penguin flipper length and body mass show a significant positive correlation (**`r format(corr_flipper_to_mass, digits = 3)`**). For this reason, I've chosen to use one or the other as a predictor (not both).
 
+*Note: A later exploration of each of the three models including flipper length as a predictor (in addition to the use of the other predictors described) was undertaken to understand the effect on model performance. In each case, the resulting model performed less accurately than when flipper length was removed. This is almost certainly due to the fact that such a significant correlation exists between flipper length and body mass, resulting in an increase in noise by adding more information without significantly adding to the signal, consistent with Claude Shannon's information theory. The reductions in performance, however, were very slight (-0.215% for random forest, -0.086% for k-nearest neighbors, and -0.211% for gradient boost), though the loss of accuracy was consistent.*
+
 <br>
 
 ### Supervised Learning Predictive Modeling
 
-The `tidymodels` package was used to perform predictive analysis using random forest and k-nearest neighbors supervised machine learning classification algorithms.
+The `tidymodels` package was used to perform predictive analysis using random forest, k-nearest neighbors, and gradient boost supervised machine learning classification algorithms.
 
 <br>
 
@@ -246,7 +248,7 @@ A **random decision forest** classification algorithm (`randomForest` package) w
 
 The trained model was then used to generate predictions from the sampled test data, and the accuracy of the predictions was calculated using the `yardstick` package for initial evaluation. The calculated accuracy was used to refine the model, as necessary.
 
-An example confusion matrix is shown below.
+An example confusion matrix is shown below. (An example confusion matrix will not be provided for each model.)
 
 ```{r forest_confusion_matrix, out.width = "70%"}
 cm <- pinguino_forest %>%
@@ -284,9 +286,7 @@ A **weighted k-nearest neighbors** classification algorithm (`kknn` package) was
 
 As with the random forest model, the trained model was used to generate predictions from the sampled test data, and the accuracy of the predictions was calculated using the `yardstick` package.
 
-An example confusion matrix is shown below.
-
-```{r knn_confusion, out.width = "70%"}
+```{r knn_confusion, eval = FALSE, out.width = "70%"}
 cm_knn <- pinguino_knn %>%
   predict(pinguino_testing) %>%
   bind_cols(pinguino_testing) %>%
@@ -322,9 +322,7 @@ A **gradient boost** classification algorithm (`xgboost` package) was also train
 
 The trained model was then used to generate predictions from the sampled test data, and the accuracy of the predictions was calculated using the `yardstick` package.
 
-An example confusion matrix is shown below.
-
-```{r gboost_confusion_matrix, out.width = "70%"}
+```{r gboost_confusion_matrix, eval = FALSE, out.width = "70%"}
 cm <- pinguino_gboost %>%
   predict(pinguino_testing) %>%
   bind_cols(pinguino_testing) %>%
