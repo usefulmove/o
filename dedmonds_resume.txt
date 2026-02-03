@@ -1,0 +1,111 @@
+﻿Robert Duane Edmonds
+
+
+Oakland, CA  |  510-393-4416  |  duane.edmonds@gmail.com  |	 dedmonds.co  |  github.com/usefulmove
+	
+
+Summary	
+	Seasoned engineering and data systems leader with 25+ years of experience driving innovation and building high-performing teams that translate development objectives into tangible business outcomes in medical device development, robotics, and lab automation. Known for leading with clarity and integrity, bridging engineering, data, and operations to drive informed decision-making. Blends hands-on technical strength with program-level vision — comfortable designing architectures, algorithms, and pipelines or leading cross-functional teams to deliver scalable, high-impact solutions. Passionate about developing leaders and cultivating learning cultures that deliver real-world impact.
+
+Highlights	
+    • Unified automation engineering, data analysis, and cloud computing at SummerBio, enabling 20+ million PCR tests with an industry-leading 11-hour average turnaround and a peak throughput of 128,000 tests/day.
+    • Built a data pipeline from Salesforce LIMS to Snowflake, that improved LIMS robustness and enhanced analytical performance, enabling real-time decision-making.
+    • Led development and global launch of the EksoNR exoskeleton, achieving 112+ million rehabilitation steps for stroke and spinal cord injury patients across 30+ countries.
+    • Scaled engineering organizations from startup through global compliance environments while fostering data-informed decision cultures grounded in mentorship and accountability.
+    • Built enso, a context engineering framework for AI agents implementing the Six Operations context management model.
+    • Patent holder for innovations in exoskeleton communication and control.
+
+Experience		
+		Consultant – Oakland, CA
+
+		Independent Engineering and Leadership Consultant  |  Oct 2022 – Present
+    • Delivering on short-term engineering projects and providing leadership consulting in automation and robotics.
+    • Designed and implemented a React-based graphical user interfaces (GUIs) for a complex, customer-facing robotics application to improve operator experience, understanding, and workflow.
+    • Data analytics using SQL, DuckDB, and Python (Polars) to develop modern, high-performance data workflows.
+    • Built enso ( github.com/usefulmove/enso ), an open-source context engineering framework for AI agents that implements agentic discovery, retrieval-led reasoning, and the Six Operations context management model for managing finite context windows in LLM agents to improve specific-task accuracy.
+    • Developed fine-tuned, deep learning classification models to improve accuracy and robustness on a real-time industrial computer vision robotic cherry-pit detection and removal pipeline.
+    • Providing mentorship and informal coaching for engineers navigating leadership transitions and professional growth.
+
+		SummerBio – Menlo Park, CA
+
+		Vice President of Engineering  |  Jan 2022 – Aug 2022
+    • Directed engineering across lab automation, cloud computing, data systems, and program management for a 24/7, CLIA-certified diagnostic testing lab performing over 20 million PCR tests with industry-leading speed and reliability.
+    • Owned data reliability and integrity across lab data systems and automation.
+    • Unified automation, LIMS, and data architecture from sample capture to results reporting, enabling traceability and cross-functional visibility through real-time Tableau dashboards.
+    • Leveraged system data to pinpoint bottlenecks and optimize throughput, achieving a record 128,000 tests per day at an industry-low average of $13 per test (compared with market norm of $38-60 per test).
+    • Built a data pipeline from the Salesforce LIMS database to a Snowflake data warehouse that improved analytical performance and significantly reduced the load on the transactional system.
+    • Introduced and validated an algorithm to detect false-positive thermocycler results, addressing a systemic flaw in vendor software to reduce unnecessary retests.
+    • Constructed a framework for prioritization of process improvements across automation and lab operations, guided by system metrics and data analysis.
+    • Championed a culture of data-informed decision-making, enabling rapid triage, accurate root-cause analysis, and confident cross-functional decisions.
+    • Standardized engineering and program management practices.
+      
+		Director of Automation Engineering  |  Aug 2021 – Jan 2022
+    • Increased testing capacity by 30% through assay, process, and automation optimizations.
+    • Developed and validated a variable-ratio sample pooling system, significantly improving throughput capacity.
+
+		Johnson & Johnson (Robotics and Digital Solutions) – Santa Clara, CA
+		Program Manager, Advanced Development  |  Sep 2020 – Jul 2021
+    • Led cross-functional system development within the OTTAVA surgical robotics program, integrating advanced systems engineering, analysis, and clinical insight to accelerate innovation in minimally invasive surgery.
+    • Managed multiple teams across system architecture, risk management, simulation, data analysis, and data-driven clinical procedure workspace development.
+    • Guided the development of system-level requirements, linking design choices to clinical outcomes and program strategy.
+    • Partnered with technical and program leadership to align engineering objectives with program milestones and business priorities.
+
+		Ekso Bionics – Richmond, CA
+		Director of R&D and Compliance / Director of Medical Products and Systems  |  Mar 2015 – Sep 2019
+    • Directed medical device development and regulatory compliance for robotic exoskeletons designed to restore mobility and independence for individuals with neurological injury.
+    • Established company-wide processes for design control, risk management, clinical evaluation, and complaint handling, enabling CE certification and commercial expansion across 30+ countries.
+    • Led cross-functional effort to leverage complaint database and risk management and corrective and preventive action (CAPA) processes to identify and prioritize process and design improvements to enhance safety and increase device effectiveness and reliability.
+    • Patent:  US10694948B2, “Methods of exoskeleton communication and control” (2020).
+      
+		Director of Software Engineering  |  Jun 2011 – Mar 2015
+    • Built and led software, controls, and embedded systems teams responsible for core exoskeleton functionality.
+    • Introduced structured development practices (coding standards, reviews, testing, and release management) to improve reliability and traceability.
+
+		Program Manager  |  Jul 2009 – Jun 2011
+		EksoNR (Class II medical robotic exoskeleton)
+    • Led multidisciplinary engineering, operations, quality, and regulatory teams from NSF-funded proof-of-concept through the global launch of the first FDA-cleared robotic exoskeleton for neurological rehabilitation (spinal cord injury, stroke).
+    • Embedded real-time data telemetry into every shipped device, enabling global usage analytics and detailed motion-level diagnostics for clinical insight, reliability analysis, and rapid root-cause investigation.
+    • Fostered collaboration between clinical and engineering teams to guide design iteration to improve clinical outcomes.
+    • Established early design controls, human subject testing protocols, and patient-centered development processes.
+    • Guided global quality management system (QMS) implementation, enabling CE certification three months after FDA clearance.
+
+		Human Unified Load Carrier (HULC)
+    • Directed a $6 million R&D program funded by Lockheed Martin to develop hydraulic exoskeleton prototypes supporting 200-lb load carriage at 3 mph for U.S. military field evaluation.
+    • Coordinated cross-site engineering, procurement, and production teams to deliver prototype builds on schedule and on budget.
+    • Implemented Earned Value Management (EVM) reporting for transparent tracking of cost and schedule performance.
+
+		Agilent Technologies (formerly Velocity11, acquired in 2008) – Santa Clara, CA
+		R&D Hardware and Systems Engineer, Agilent Automation Solutions  |  Oct 2006 – Jul 2009
+    • Designed a 5-axis direct-drive microplate-handling robot (DDR) used in global life-science automation platforms.
+    • Developed embedded motion control and path planning software with built-in diagnostics and exception handling.
+    • Built a custom unit-testing framework and diagnostic tool that reduced downtime and improved serviceability.
+
+
+		Berkeley Process Control – Richmond, CA
+		Program Manager / Controls Engineer  |  Sep 1999 – Oct 2006
+    • Led robotics and motion control projects for semiconductor automation, from concept through production.
+    • Designed and implemented motion control algorithms and scheduling for high-precision wafer-handling systems.
+    • Developed automated machine-to-machine calibration (autocalibration) algorithms, improving throughput and reliability.
+
+		Texas A&M University (Vibration Control and Electromagnetics Lab) – College Station, TX
+		Undergraduate Research Assistant  |  Nov 1997 – Aug 1998
+	Advisor: Dr. Alan B. Palazzolo
+	Undergraduate Thesis: “Fuzzy Logic Expert System Control of Magnetic Bearings on High-Energy Energy Storage Flywheels.”
+Skills	
+	Leadership & Strategy:
+	Engineering leadership, organizational scaling, data-informed decision-making, medical device development, QMS, design controls, risk management, regulatory compliance, lab automation, data systems, Objectives & Key Results (OKRs), program and project management (MS Project, Smartsheet), cross-functional alignment, agile development (Kanban, Scrum), executive communication, coaching and team development.
+
+	Technical & Tools:
+	Systems engineering, robotics, automation, mechatronics, embedded systems (C, C++, Rust, Linux), data analysis and visualization (SQL, DuckDB, Python, Polars, R), machine learning/deep learning (Pytorch), computer vision (Torchvision), UI/UX development (React, JavaScript/TypeScript, Figma, Material UI), simulation and system modeling, analytics-driven operations improvement.
+
+	Standards & Compliance:
+	21 CFR 820 (QSR), ISO 13485 (QMS), Medical Device Directive 93/42/EEC, IEC 62304 (Software Development), ISO 14971 (Risk Management), IEC 60601-1 (Safety and Essential Performance), HIPAA, MEDDEV 2.7/1 (Clinical Evaluation).
+
+Education	
+		University of California – Berkeley, CA
+		Graduate Studies, Mechanical Engineering – Advanced Control Systems  |  1998 – 1999
+		3.78 GPA. Passed Preliminary Examinations for PhD candidacy.
+
+		Texas A&M University – College Station, TX
+		Bachelor of Science, Mechanical Engineering – Dynamics and Control Systems  |  1993 – 1998
+		3.96 GPA (major). 3.93 GPA (overall). Graduated summa cum laude.
